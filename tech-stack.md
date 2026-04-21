@@ -8,7 +8,7 @@
 ### Backend
 - Node.js + Express
 - Prisma (ORM + migrations)
-- PostgreSQL + pgvector
+- PostgreSQL
 
 ### AI
 - Claude API (Sonnet 4.6) — classification, summarization, suggested replies

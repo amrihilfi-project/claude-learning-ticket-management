@@ -7,7 +7,7 @@ An AI-powered support ticket management system for handling student support emai
 - **Runtime**: Bun
 - **Frontend**: React 18, TypeScript, Vite, TailwindCSS, React Router v7 (`client/`)
 - **Backend**: Node.js, Express, TypeScript, Prisma (`server/`)
-- **Database**: PostgreSQL + pgvector
+- **Database**: PostgreSQL
 - **AI**: Claude API (Sonnet 4.6)
 - **Queue**: Redis + BullMQ
 - **Auth**: Database sessions

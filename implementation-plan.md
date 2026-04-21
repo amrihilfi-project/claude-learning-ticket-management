@@ -42,9 +42,8 @@
 - [ ] Set up Claude API client
 - [ ] Implement AI ticket classification (assign category on ingestion)
 - [ ] Implement AI ticket summarization
-- [ ] Set up knowledge base storage (pgvector + embeddings)
-- [ ] Implement RAG pipeline (retrieve relevant KB chunks for a ticket)
-- [ ] Implement AI suggested reply (uses KB context)
+- [ ] Set up knowledge base storage
+- [ ] Implement AI suggested reply (uses knowledge base context)
 - [ ] Queue all AI tasks via BullMQ (non-blocking)
 - [ ] Display AI summary and suggested reply in ticket detail view
 - [ ] Agent approve/edit/send reply flow
