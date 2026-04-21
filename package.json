@@ -2,9 +2,23 @@
   "name": "ticket-management",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "workspaces": ["server", "client"],
   "scripts": {
     "dev": "bun run --filter '*' dev",
-    "build": "bun run --filter '*' build"
+    "build": "bun run --filter '*' build",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.2.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-dom": "^4.2.3",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-x": "^4.2.3",
+    "globals": "^17.5.0",
+    "prettier": "^3.8.3",
+    "typescript-eslint": "^8.59.0"
   }
 }
