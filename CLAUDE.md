@@ -47,6 +47,12 @@ bunx --bun shadcn@latest add <component-name>
 ```
 Components are added to `client/src/components/ui/`. Already installed: button, card, input, label, alert.
 
+## Auth Patterns
+- Client session: `authClient.useSession()` from `better-auth/react`
+- Role check: `(session?.user as any)?.role` — role is an `additionalFields` field, not typed in the SDK
+- Route protection: `<ProtectedRoute roles={["ADMIN"]}>` — non-matching roles redirect to `/`
+- New users: seeded via scripts in `server/prisma/` using `hashPassword` from `better-auth/crypto` + Prisma `user` + `account` records
+
 ## Key Decisions
 - API calls from client to `/api/*` are proxied to the server via Vite config
 - AI responses are always agent-approved before sending (no auto-send)

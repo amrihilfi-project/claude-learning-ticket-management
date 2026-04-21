@@ -1,7 +1,13 @@
 import { Navigate } from "react-router";
 import { authClient } from "../lib/auth-client";
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
+export default function ProtectedRoute({
+  children,
+  roles,
+}: {
+  children: React.ReactNode;
+  roles?: string[];
+}) {
   const { data: session, isPending } = authClient.useSession();
 
   if (isPending) {
@@ -14,6 +20,10 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
   if (!session) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (roles && !roles.includes((session.user as any).role)) {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
