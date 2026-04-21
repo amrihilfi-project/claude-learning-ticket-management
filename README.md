@@ -49,8 +49,8 @@ docker compose up
 
 ```
 /
-├── frontend/        # React app
-├── backend/         # Express API
+├── client/          # React app
+├── server/          # Express API
 ├── docker-compose.yml
 └── .env.example
 ```

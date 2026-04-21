@@ -4,19 +4,18 @@
 
 ### Phase 1 — Project Setup
 - [ ] Initialize monorepo structure (frontend + backend)
-- [ ] Set up Docker Compose (Postgres, Redis, backend, frontend)
+- [ ] Set up Express server with TypeScript
+- [ ] Set up React app with TypeScript, Tailwind CSS, and React Router
+- [ ] Set up PostgreSQL database
 - [ ] Configure ESLint, Prettier, TypeScript for both frontend and backend
-- [ ] Set up Prisma with initial database connection
-- [ ] Set up React Router v7 with a blank shell app
-- [ ] Set up TailwindCSS
 
 ---
 
 ### Phase 2 — Authentication
-- [ ] Design `users` and `sessions` tables in Prisma schema
+- [ ] Build login page (frontend)
+- [ ] Implement login
 - [ ] Implement session-based auth (login, logout, session validation)
 - [ ] Protect backend routes with session middleware
-- [ ] Build login page (frontend)
 - [ ] Implement role-based access (admin vs. agent)
 
 ---
