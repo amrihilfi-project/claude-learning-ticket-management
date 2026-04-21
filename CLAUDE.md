@@ -10,7 +10,7 @@ An AI-powered support ticket management system for handling student support emai
 - **Database**: PostgreSQL
 - **AI**: Claude API (Sonnet 4.6)
 - **Queue**: Redis + BullMQ
-- **Auth**: Database sessions
+- **Auth**: Better Auth — email/password, sessions in PostgreSQL via Prisma adapter, RBAC (ADMIN / AGENT roles), sign-up disabled (users seeded by admin script)
 - **Deployment**: Docker + Docker Compose
 
 ## Project Structure
@@ -39,6 +39,13 @@ Steps:
 3. Use the fetched docs to answer accurately
 
 Do not rely on training data alone for library-specific syntax, configuration, or APIs.
+
+## UI Components
+Use **shadcn/ui** when creating new UI components. Add components via:
+```bash
+bunx --bun shadcn@latest add <component-name>
+```
+Components are added to `client/src/components/ui/`. Already installed: button, card, input, label, alert.
 
 ## Key Decisions
 - API calls from client to `/api/*` are proxied to the server via Vite config

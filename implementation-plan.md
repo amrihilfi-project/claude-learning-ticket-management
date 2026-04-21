@@ -12,11 +12,13 @@
 ---
 
 ### Phase 2 — Authentication
-- [ ] Build login page (frontend)
-- [ ] Implement login
+- [x] Build login page (frontend) — React Hook Form + Zod validation, error UI
+- [x] Implement login — Better Auth email/password (sign-up disabled; admin seeds users)
 - [x] Implement session-based auth (login, logout, session validation)
 - [x] Protect backend routes with session middleware
 - [x] Implement role-based access (admin vs. agent)
+- [x] ProtectedRoute component on client
+- [x] NavBar with session-aware sign-out
 
 ---
 
