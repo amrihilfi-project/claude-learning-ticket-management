@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { hashPassword } from "better-auth/crypto";
 import prisma from "../src/lib/prisma";
+import { Role } from "../src/generated/prisma/enums";
 
 async function seed() {
   const email = process.env.SEED_ADMIN_EMAIL!;
@@ -23,7 +24,7 @@ async function seed() {
       name: "Admin",
       email: email.toLowerCase(),
       emailVerified: false,
-      role: "ADMIN",
+      role: Role.ADMIN,
       isActive: true,
       createdAt: now,
       updatedAt: now,
