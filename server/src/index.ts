@@ -4,7 +4,9 @@ import cors from "cors";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import { toNodeHandler } from "better-auth/node";
+import { hashPassword } from "better-auth/crypto";
 import { auth } from "./lib/auth";
+import prisma from "./lib/prisma";
 import { requireSession } from "./middleware/session";
 import { requireRole } from "./middleware/requireRole";
 
@@ -43,11 +45,184 @@ app.get("/api/me", requireSession, (_req, res) => {
   });
 });
 
-app.get("/api/users", requireSession, requireRole("ADMIN"), (_req, res) => {
-  res.json([]);
+// ─── User management (Admin only) ────────────────────────────────────────────
+
+app.get("/api/users", requireSession, requireRole("ADMIN"), async (req, res) => {
+  const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+  const skip = (page - 1) * limit;
+
+  const where = search
+    ? {
+        OR: [
+          { name: { contains: search, mode: "insensitive" as const } },
+          { email: { contains: search, mode: "insensitive" as const } },
+        ],
+      }
+    : {};
+
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  res.json({ data: users, total, page, limit });
 });
 
-// Example: admin only
+app.post("/api/users", requireSession, requireRole("ADMIN"), async (req, res) => {
+  const { name, email, password, role } = req.body as {
+    name?: string;
+    email?: string;
+    password?: string;
+    role?: string;
+  };
+
+  if (!name?.trim() || !email?.trim() || !password || !role) {
+    res.status(400).json({ error: "name, email, password, and role are required" });
+    return;
+  }
+  if (!["ADMIN", "AGENT"].includes(role)) {
+    res.status(400).json({ error: "role must be ADMIN or AGENT" });
+    return;
+  }
+  if (password.length < 8) {
+    res.status(400).json({ error: "password must be at least 8 characters" });
+    return;
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  if (existing) {
+    res.status(409).json({ error: "Email already in use" });
+    return;
+  }
+
+  const now = new Date();
+  const userId = crypto.randomUUID();
+  const hashed = await hashPassword(password);
+
+  const user = await prisma.user.create({
+    data: {
+      id: userId,
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      emailVerified: false,
+      role: role as "ADMIN" | "AGENT",
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+  });
+
+  await prisma.account.create({
+    data: {
+      id: crypto.randomUUID(),
+      accountId: userId,
+      providerId: "credential",
+      userId,
+      password: hashed,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+
+  res.status(201).json(user);
+});
+
+app.patch("/api/users/:id", requireSession, requireRole("ADMIN"), async (req, res) => {
+  const { id } = req.params;
+  const currentUserId = res.locals.session.user.id;
+  const { name, email, role } = req.body as { name?: string; email?: string; role?: string };
+
+  if (role && id === currentUserId) {
+    res.status(403).json({ error: "Cannot change your own role" });
+    return;
+  }
+  if (role && !["ADMIN", "AGENT"].includes(role)) {
+    res.status(400).json({ error: "role must be ADMIN or AGENT" });
+    return;
+  }
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (email && email.toLowerCase() !== target.email) {
+    const conflict = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (conflict) {
+      res.status(409).json({ error: "Email already in use" });
+      return;
+    }
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: {
+      ...(name ? { name: name.trim() } : {}),
+      ...(email ? { email: email.toLowerCase().trim() } : {}),
+      ...(role ? { role: role as "ADMIN" | "AGENT" } : {}),
+      updatedAt: new Date(),
+    },
+    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+  });
+
+  res.json(updated);
+});
+
+app.patch("/api/users/:id/toggle-active", requireSession, requireRole("ADMIN"), async (req, res) => {
+  const { id } = req.params;
+  const currentUserId = res.locals.session.user.id;
+
+  if (id === currentUserId) {
+    res.status(403).json({ error: "Cannot deactivate your own account" });
+    return;
+  }
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { isActive: !target.isActive, updatedAt: new Date() },
+    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+  });
+
+  res.json(updated);
+});
+
+app.delete("/api/users/:id", requireSession, requireRole("ADMIN"), async (req, res) => {
+  const { id } = req.params;
+  const currentUserId = res.locals.session.user.id;
+
+  if (id === currentUserId) {
+    res.status(403).json({ error: "Cannot delete your own account" });
+    return;
+  }
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  await prisma.user.delete({ where: { id } });
+  res.status(204).send();
+});
+
+// ─── Example admin route ──────────────────────────────────────────────────────
+
 app.get("/api/admin", requireSession, requireRole("ADMIN"), (_req, res) => {
   res.json({ message: "Admin access granted" });
 });
