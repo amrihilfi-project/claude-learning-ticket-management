@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,21 +27,23 @@ export default function LoginPage() {
     register,
     handleSubmit,
     setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema), mode: "onTouched" });
 
-  if (!isPending && session) {
-    navigate("/", { replace: true });
-    return null;
-  }
+  useEffect(() => {
+    if (!isPending && session) {
+      navigate("/", { replace: true });
+    }
+  }, [isPending, session, navigate]);
 
   const onSubmit = async (data: LoginFormData) => {
-    const { error } = await authClient.signIn.email(data);
-    if (error) {
-      setError("root", { message: error.message ?? "Invalid credentials" });
-    } else {
-      navigate("/");
-    }
+    await authClient.signIn.email(data, {
+      onSuccess: () => navigate("/"),
+      onError: (ctx) => {
+        setError("root", { message: ctx.error.message ?? "Invalid credentials" });
+      },
+    });
   };
 
   return (
@@ -69,7 +71,7 @@ export default function LoginPage() {
                 disabled={isSubmitting}
                 placeholder="you@example.com"
                 aria-invalid={!!(errors.email || errors.root)}
-                {...register("email")}
+                {...register("email", { onChange: () => clearErrors("root") })}
               />
               {errors.email && (
                 <p className="text-xs text-destructive">{errors.email.message}</p>
@@ -86,7 +88,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   className="pr-10"
                   aria-invalid={!!(errors.password || errors.root)}
-                  {...register("password")}
+                  {...register("password", { onChange: () => clearErrors("root") })}
                 />
                 <button
                   type="button"

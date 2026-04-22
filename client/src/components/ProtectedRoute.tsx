@@ -22,7 +22,17 @@ export default function ProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
-  if (roles && !roles.includes(session.user.role ?? "")) {
+  const role = (session.user as any).role as string | undefined;
+
+  if (roles && role == null) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <span className="text-sm text-gray-400">Loading...</span>
+      </div>
+    );
+  }
+
+  if (roles && !roles.includes(role ?? "")) {
     return <Navigate to="/" replace />;
   }
 

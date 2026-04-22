@@ -22,7 +22,14 @@
 
 ---
 
-### Phase 3 — Ticket Core
+### Phase 3 — User Management (Admin)
+- [ ] Admin-only user list page
+- [ ] Create / deactivate agent accounts
+- [ ] Assign roles (admin, agent)
+
+---
+
+### Phase 4 — Ticket Core
 - [ ] Design `tickets` table (status, category, assignee, timestamps)
 - [ ] Build email ingestion webhook endpoint (SendGrid or Postmark)
 - [ ] Parse incoming email → create ticket in database
@@ -32,7 +39,7 @@
 
 ---
 
-### Phase 4 — Ticket UI
+### Phase 5 — Ticket UI
 - [ ] Ticket list page with filtering (status, category) and sorting
 - [ ] Ticket detail page (thread view, status controls, assignee)
 - [ ] Dashboard with ticket counts by status and category
@@ -40,7 +47,7 @@
 
 ---
 
-### Phase 5 — AI Features
+### Phase 6 — AI Features
 - [ ] Set up Claude API client
 - [ ] Implement AI ticket classification (assign category on ingestion)
 - [ ] Implement AI ticket summarization
@@ -52,17 +59,10 @@
 
 ---
 
-### Phase 6 — Routing & Refund Handling
+### Phase 7 — Routing & Refund Handling
 - [ ] Implement routing logic (Refund → dedicated queue, others → general pool)
 - [ ] Flag Refund Request tickets visually in the UI
 - [ ] Suppress auto-actions on Refund tickets (no auto-assign, agent-only)
-
----
-
-### Phase 7 — User Management (Admin)
-- [ ] Admin-only user list page
-- [ ] Create / deactivate agent accounts
-- [ ] Assign roles (admin, agent)
 
 ---
 
