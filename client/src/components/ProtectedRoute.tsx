@@ -22,7 +22,7 @@ export default function ProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
-  if (roles && !roles.includes((session.user as any).role)) {
+  if (roles && !roles.includes(session.user.role ?? "")) {
     return <Navigate to="/" replace />;
   }
 
