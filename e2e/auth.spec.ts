@@ -304,7 +304,7 @@ test.describe("Authentication — session persistence across page reloads", () =
     await expect(page).toHaveURL(HOME_URL);
 
     await page.goForward();
-    await page.waitForLoadState("networkidle");
+    await page.waitForURL("/users");
     await expect(page).toHaveURL("/users");
   });
 });
