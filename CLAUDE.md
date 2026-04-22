@@ -57,7 +57,15 @@ Use **shadcn/ui** when creating new UI components. Add components via:
 ```bash
 bunx --bun shadcn@latest add <component-name>
 ```
-Components are added to `client/src/components/ui/`. Already installed: button, card, input, label, alert.
+Components are added to `client/src/components/ui/`. Already installed: button, card, input, label, alert, badge, dialog, select.
+
+## Data Fetching
+- Use **axios** for all HTTP requests in the client (`import axios from "axios"`)
+- Use **TanStack Query** (`@tanstack/react-query`) for all server state:
+  - `useQuery` for fetching — include relevant variables in the query key so refetches are automatic
+  - `useMutation` with `onSuccess: () => qc.invalidateQueries(...)` for writes
+  - `placeholderData: (prev) => prev` on paginated queries to avoid loading flashes
+- `QueryClientProvider` is already set up in `client/src/main.tsx`
 
 ## Auth Patterns
 - Client session: `authClient.useSession()` from `better-auth/react`

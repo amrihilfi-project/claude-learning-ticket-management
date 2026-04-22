@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import axios from "axios";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import NavBar from "../components/NavBar";
 import { authClient } from "../lib/auth-client";
 import { Button } from "../components/ui/button";
@@ -36,34 +38,42 @@ type UserFormState = {
   role: "ADMIN" | "AGENT";
 };
 
+type UsersResponse = {
+  data: User[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
 const LIMIT = 10;
+
+async function fetchUsers(page: number, search: string): Promise<UsersResponse> {
+  const { data } = await axios.get("/api/users", {
+    params: { page, limit: LIMIT, ...(search ? { search } : {}) },
+  });
+  return data;
+}
 
 export default function UsersPage() {
   const { data: session } = authClient.useSession();
   const currentUserId = (session?.user as any)?.id as string | undefined;
+  const qc = useQueryClient();
 
-  const [users, setUsers] = useState<User[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
   const [form, setForm] = useState<UserFormState>({
     name: "",
     email: "",
     password: "",
     role: "AGENT",
   });
-
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -74,32 +84,48 @@ export default function UsersPage() {
     }, 400);
   }
 
-  async function fetchUsers() {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(LIMIT),
-        ...(debouncedSearch ? { search: debouncedSearch } : {}),
-      });
-      const res = await fetch(`/api/users?${params}`);
-      if (!res.ok) throw new Error("Failed to load users");
-      const json = await res.json();
-      setUsers(json.data);
-      setTotal(json.total);
-    } catch {
-      setError("Could not load users. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["users", page, debouncedSearch],
+    queryFn: () => fetchUsers(page, debouncedSearch),
+    placeholderData: (prev) => prev,
+  });
+
+  const users = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+
+  function invalidate() {
+    qc.invalidateQueries({ queryKey: ["users"] });
   }
 
-  useEffect(() => {
-    fetchUsers();
-  }, [page, debouncedSearch]);
+  const createMutation = useMutation({
+    mutationFn: (payload: UserFormState) => axios.post("/api/users", payload),
+    onSuccess: () => { setCreateOpen(false); invalidate(); },
+    onError: (err: any) => setFormError(err.response?.data?.error || "Failed to create user."),
+  });
 
-  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+  const editMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<UserFormState> }) =>
+      axios.patch(`/api/users/${id}`, payload),
+    onSuccess: () => { setEditUser(null); invalidate(); },
+    onError: (err: any) => setFormError(err.response?.data?.error || "Failed to update user."),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (id: string) => axios.patch(`/api/users/${id}/toggle-active`),
+    onSuccess: () => invalidate(),
+    onError: (err: any) => setFormError(err.response?.data?.error || "Failed to update status."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => axios.delete(`/api/users/${id}`),
+    onSuccess: () => {
+      setDeleteUser(null);
+      if (users.length === 1 && page > 1) setPage((p) => p - 1);
+      else invalidate();
+    },
+    onError: (err: any) => setFormError(err.response?.data?.error || "Failed to delete user."),
+  });
 
   function openCreate() {
     setForm({ name: "", email: "", password: "", role: "AGENT" });
@@ -113,93 +139,26 @@ export default function UsersPage() {
     setEditUser(user);
   }
 
-  async function handleCreate() {
+  function handleCreate() {
     setFormError(null);
     if (!form.name.trim() || !form.email.trim() || !form.password) {
       setFormError("All fields are required.");
       return;
     }
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setFormError(json.error || "Failed to create user.");
-        return;
-      }
-      setCreateOpen(false);
-      fetchUsers();
-    } catch {
-      setFormError("Something went wrong.");
-    } finally {
-      setSubmitting(false);
-    }
+    createMutation.mutate(form);
   }
 
-  async function handleEdit() {
+  function handleEdit() {
     if (!editUser) return;
     setFormError(null);
     if (!form.name.trim() || !form.email.trim()) {
       setFormError("Name and email are required.");
       return;
     }
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/users/${editUser.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, email: form.email, role: form.role }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setFormError(json.error || "Failed to update user.");
-        return;
-      }
-      setEditUser(null);
-      fetchUsers();
-    } catch {
-      setFormError("Something went wrong.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleToggleActive(user: User) {
-    try {
-      const res = await fetch(`/api/users/${user.id}/toggle-active`, { method: "PATCH" });
-      if (!res.ok) {
-        const json = await res.json();
-        setError(json.error || "Failed to update user status.");
-        return;
-      }
-      fetchUsers();
-    } catch {
-      setError("Something went wrong.");
-    }
-  }
-
-  async function handleDelete() {
-    if (!deleteUser) return;
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/users/${deleteUser.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const json = await res.json();
-        setFormError(json.error || "Failed to delete user.");
-        return;
-      }
-      setDeleteUser(null);
-      if (users.length === 1 && page > 1) setPage((p) => p - 1);
-      else fetchUsers();
-    } catch {
-      setFormError("Something went wrong.");
-    } finally {
-      setSubmitting(false);
-    }
+    editMutation.mutate({
+      id: editUser.id,
+      payload: { name: form.name, email: form.email, role: form.role },
+    });
   }
 
   function isSelf(userId: string) {
@@ -224,9 +183,9 @@ export default function UsersPage() {
           />
         </div>
 
-        {error && (
+        {isError && (
           <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2">
-            {error}
+            Could not load users. Please try again.
           </div>
         )}
 
@@ -243,7 +202,7 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {isLoading ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                     Loading...
@@ -273,11 +232,7 @@ export default function UsersPage() {
                     <td className="px-4 py-3">
                       <Badge
                         variant={user.isActive ? "default" : "destructive"}
-                        className={
-                          user.isActive
-                            ? "bg-green-100 text-green-700 hover:bg-green-100"
-                            : ""
-                        }
+                        className={user.isActive ? "bg-green-100 text-green-700 hover:bg-green-100" : ""}
                       >
                         {user.isActive ? "Active" : "Inactive"}
                       </Badge>
@@ -291,19 +246,15 @@ export default function UsersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 justify-end">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEdit(user)}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => openEdit(user)}>
                           Edit
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={isSelf(user.id)}
+                          disabled={isSelf(user.id) || toggleMutation.isPending}
                           title={isSelf(user.id) ? "Cannot deactivate your own account" : undefined}
-                          onClick={() => handleToggleActive(user)}
+                          onClick={() => toggleMutation.mutate(user.id)}
                         >
                           {user.isActive ? "Deactivate" : "Activate"}
                         </Button>
@@ -312,7 +263,7 @@ export default function UsersPage() {
                           size="sm"
                           disabled={isSelf(user.id)}
                           title={isSelf(user.id) ? "Cannot delete your own account" : undefined}
-                          onClick={() => setDeleteUser(user)}
+                          onClick={() => { setFormError(null); setDeleteUser(user); }}
                         >
                           Delete
                         </Button>
@@ -325,30 +276,17 @@ export default function UsersPage() {
           </table>
         </div>
 
-        {/* Pagination */}
-        {!loading && total > 0 && (
+        {!isLoading && total > 0 && (
           <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
             <span>
               Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total} users
             </span>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
                 Previous
               </Button>
-              <span>
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
+              <span>Page {page} of {totalPages}</span>
+              <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>
                 Next
               </Button>
             </div>
@@ -364,11 +302,11 @@ export default function UsersPage() {
           </DialogHeader>
           <UserForm form={form} setForm={setForm} showPassword error={formError} />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createMutation.isPending}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={submitting}>
-              {submitting ? "Creating..." : "Create"}
+            <Button onClick={handleCreate} disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Creating..." : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -388,11 +326,11 @@ export default function UsersPage() {
             disableRole={!!editUser && isSelf(editUser.id)}
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditUser(null)} disabled={submitting}>
+            <Button variant="outline" onClick={() => setEditUser(null)} disabled={editMutation.isPending}>
               Cancel
             </Button>
-            <Button onClick={handleEdit} disabled={submitting}>
-              {submitting ? "Saving..." : "Save"}
+            <Button onClick={handleEdit} disabled={editMutation.isPending}>
+              {editMutation.isPending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -409,15 +347,17 @@ export default function UsersPage() {
             <span className="font-medium text-gray-900">{deleteUser?.name}</span>? This action
             cannot be undone.
           </p>
-          {formError && (
-            <p className="text-sm text-red-600">{formError}</p>
-          )}
+          {formError && <p className="text-sm text-red-600">{formError}</p>}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteUser(null)} disabled={submitting}>
+            <Button variant="outline" onClick={() => setDeleteUser(null)} disabled={deleteMutation.isPending}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={submitting}>
-              {submitting ? "Deleting..." : "Delete"}
+            <Button
+              variant="destructive"
+              onClick={() => deleteUser && deleteMutation.mutate(deleteUser.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
