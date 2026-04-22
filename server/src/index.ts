@@ -5,10 +5,18 @@ import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import { toNodeHandler } from "better-auth/node";
 import { hashPassword } from "better-auth/crypto";
+import { z } from "zod";
 import { auth } from "./lib/auth";
 import prisma from "./lib/prisma";
 import { requireSession } from "./middleware/session";
 import { requireRole } from "./middleware/requireRole";
+
+const createUserSchema = z.object({
+  name: z.string().min(1, "name is required").refine((v) => v.trim().length >= 3, "name must be at least 3 characters"),
+  email: z.string().min(1, "email is required").email("invalid email address"),
+  password: z.string().min(8, "password must be at least 8 characters"),
+  role: z.enum(["ADMIN", "AGENT"], { error: "role must be ADMIN or AGENT" }),
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -94,25 +102,12 @@ app.get("/api/users/check", requireSession, requireRole("ADMIN"), async (req, re
 });
 
 app.post("/api/users", requireSession, requireRole("ADMIN"), async (req, res) => {
-  const { name, email, password, role } = req.body as {
-    name?: string;
-    email?: string;
-    password?: string;
-    role?: string;
-  };
-
-  if (!name?.trim() || !email?.trim() || !password || !role) {
-    res.status(400).json({ error: "name, email, password, and role are required" });
+  const parsed = createUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0].message });
     return;
   }
-  if (!["ADMIN", "AGENT"].includes(role)) {
-    res.status(400).json({ error: "role must be ADMIN or AGENT" });
-    return;
-  }
-  if (password.length < 8) {
-    res.status(400).json({ error: "password must be at least 8 characters" });
-    return;
-  }
+  const { name, email, password, role } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) {

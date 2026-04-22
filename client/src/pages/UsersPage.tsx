@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { z } from "zod";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import NavBar from "../components/NavBar";
@@ -49,22 +50,15 @@ type UsersResponse = {
 
 const LIMIT = 10;
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const createUserSchema = z.object({
+  name: z.string().min(1, "Name is required.").refine((v) => v.trim().length >= 3, "Name must be at least 3 characters."),
+  email: z.string().min(1, "Email is required.").email("Enter a valid email address."),
+  password: z.string().min(1, "Password is required.").min(8, "Password must be at least 8 characters."),
+});
 
-function validateField(field: string, value: string): string {
-  if (field === "name") {
-    if (!value.trim()) return "Name is required.";
-    if (value.trim().length < 3) return "Name must be at least 3 characters.";
-  }
-  if (field === "email") {
-    const v = value.trim().toLowerCase();
-    if (!v) return "Email is required.";
-    if (!EMAIL_RE.test(v)) return "Enter a valid email address.";
-  }
-  if (field === "password") {
-    if (!value) return "Password is required.";
-    if (value.length < 8) return "Password must be at least 8 characters.";
-  }
+function validateField(field: "name" | "email" | "password", value: string): string {
+  const result = createUserSchema.shape[field].safeParse(value);
+  if (!result.success) return result.error.issues[0].message;
   return "";
 }
 
@@ -163,12 +157,13 @@ export default function UsersPage() {
   }
 
   function handleCreate() {
-    const errors: Record<string, string> = {};
-    for (const field of ["name", "email", "password"] as const) {
-      const msg = validateField(field, form[field]);
-      if (msg) errors[field] = msg;
-    }
-    if (Object.keys(errors).length > 0) {
+    const result = createUserSchema.safeParse(form);
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      for (const issue of result.error.issues) {
+        const field = String(issue.path[0]);
+        if (!errors[field]) errors[field] = issue.message;
+      }
       setFieldErrors(errors);
       return;
     }

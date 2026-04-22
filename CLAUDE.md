@@ -93,6 +93,13 @@ bunx --bun shadcn@latest add <component-name>
 ```
 Components are added to `client/src/components/ui/`. Already installed: button, card, input, label, alert, badge, dialog, select.
 
+## Validation
+Use **Zod** for all input validation — both client and server.
+- Define schemas with `z.object(...)` and validate with `.safeParse()`
+- On the client: use `schema.shape[field].safeParse(value)` for per-field live validation; use `schema.safeParse(formData)` on submit
+- On the server: validate `req.body` at the top of each route handler; return the first issue message on failure (`parsed.error.issues[0].message`)
+- Zod is installed in both `client/` and `server/` packages
+
 ## Data Fetching
 - Use **axios** for all HTTP requests in the client (`import axios from "axios"`)
 - Use **TanStack Query** (`@tanstack/react-query`) for all server state:
