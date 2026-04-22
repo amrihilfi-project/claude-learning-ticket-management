@@ -180,7 +180,7 @@ describe("UsersPage", () => {
       fireEvent.click(screen.getByRole("button", { name: /add user/i }));
       await screen.findByRole("heading", { name: /add user/i });
       fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
-      expect(screen.getByText(/all fields are required/i)).toBeInTheDocument();
+      expect(screen.getByText(/name is required/i)).toBeInTheDocument();
     });
 
     it("submits and closes dialog on success", async () => {

@@ -76,6 +76,23 @@ app.get("/api/users", requireSession, requireRole("ADMIN"), async (req, res) => 
   res.json({ data: users, total, page, limit });
 });
 
+app.get("/api/users/check", requireSession, requireRole("ADMIN"), async (req, res) => {
+  const result: { name?: boolean; email?: boolean } = {};
+  if (typeof req.query.name === "string" && req.query.name.trim()) {
+    const found = await prisma.user.findFirst({
+      where: { name: { equals: req.query.name.trim(), mode: "insensitive" } },
+    });
+    result.name = !!found;
+  }
+  if (typeof req.query.email === "string" && req.query.email.trim()) {
+    const found = await prisma.user.findUnique({
+      where: { email: req.query.email.trim().toLowerCase() },
+    });
+    result.email = !!found;
+  }
+  res.json(result);
+});
+
 app.post("/api/users", requireSession, requireRole("ADMIN"), async (req, res) => {
   const { name, email, password, role } = req.body as {
     name?: string;
@@ -100,6 +117,14 @@ app.post("/api/users", requireSession, requireRole("ADMIN"), async (req, res) =>
   const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) {
     res.status(409).json({ error: "Email already in use" });
+    return;
+  }
+
+  const existingName = await prisma.user.findFirst({
+    where: { name: { equals: name.trim(), mode: "insensitive" } },
+  });
+  if (existingName) {
+    res.status(409).json({ error: "Name already in use" });
     return;
   }
 

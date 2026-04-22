@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import NavBar from "../components/NavBar";
@@ -48,6 +49,25 @@ type UsersResponse = {
 
 const LIMIT = 10;
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateField(field: string, value: string): string {
+  if (field === "name") {
+    if (!value.trim()) return "Name is required.";
+    if (value.trim().length < 3) return "Name must be at least 3 characters.";
+  }
+  if (field === "email") {
+    const v = value.trim().toLowerCase();
+    if (!v) return "Email is required.";
+    if (!EMAIL_RE.test(v)) return "Enter a valid email address.";
+  }
+  if (field === "password") {
+    if (!value) return "Password is required.";
+    if (value.length < 8) return "Password must be at least 8 characters.";
+  }
+  return "";
+}
+
 async function fetchUsers(page: number, search: string): Promise<UsersResponse> {
   const { data } = await axios.get("/api/users", {
     params: { page, limit: LIMIT, ...(search ? { search } : {}) },
@@ -69,6 +89,7 @@ export default function UsersPage() {
   const [editUser, setEditUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState<UserFormState>({
     name: "",
     email: "",
@@ -131,6 +152,7 @@ export default function UsersPage() {
   function openCreate() {
     setForm({ name: "", email: "", password: "", role: "AGENT" });
     setFormError(null);
+    setFieldErrors({});
     setCreateOpen(true);
   }
 
@@ -141,11 +163,17 @@ export default function UsersPage() {
   }
 
   function handleCreate() {
-    setFormError(null);
-    if (!form.name.trim() || !form.email.trim() || !form.password) {
-      setFormError("All fields are required.");
+    const errors: Record<string, string> = {};
+    for (const field of ["name", "email", "password"] as const) {
+      const msg = validateField(field, form[field]);
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
+    setFieldErrors({});
+    setFormError(null);
     createMutation.mutate(form);
   }
 
@@ -311,12 +339,12 @@ export default function UsersPage() {
       </main>
 
       {/* Create User Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setFieldErrors({}); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add User</DialogTitle>
           </DialogHeader>
-          <UserForm form={form} setForm={setForm} showPassword error={formError} />
+          <UserForm form={form} setForm={setForm} showPassword showRole={false} error={formError} fieldErrors={fieldErrors} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createMutation.isPending}>
               Cancel
@@ -386,15 +414,74 @@ function UserForm({
   form,
   setForm,
   showPassword,
+  showRole = true,
   error,
+  fieldErrors = {},
   disableRole = false,
 }: {
   form: UserFormState;
   setForm: React.Dispatch<React.SetStateAction<UserFormState>>;
   showPassword: boolean;
+  showRole?: boolean;
   error: string | null;
+  fieldErrors?: Record<string, string>;
   disableRole?: boolean;
 }) {
+  const [peekPassword, setPeekPassword] = useState(false);
+  const [liveErrors, setLiveErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+  const [checking, setChecking] = useState<Set<string>>(new Set());
+  const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    if (!fieldErrors || Object.keys(fieldErrors).length === 0) return;
+    setLiveErrors((prev) => ({ ...prev, ...fieldErrors }));
+    setTouched((prev) => {
+      const next = new Set(prev);
+      Object.keys(fieldErrors).forEach((k) => next.add(k));
+      return next;
+    });
+  }, [fieldErrors]);
+
+  function handleChange(field: "name" | "email" | "password", value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+    setTouched((prev) => new Set(prev).add(field));
+
+    const formatErr = validateField(field, value);
+    if (formatErr) {
+      setLiveErrors((e) => ({ ...e, [field]: formatErr }));
+      clearTimeout(debounceRefs.current[field]);
+      setChecking((s) => { const next = new Set(s); next.delete(field); return next; });
+      return;
+    }
+    setLiveErrors((e) => ({ ...e, [field]: "" }));
+
+    if (field === "name" || field === "email") {
+      clearTimeout(debounceRefs.current[field]);
+      setChecking((s) => new Set(s).add(field));
+      debounceRefs.current[field] = setTimeout(async () => {
+        try {
+          const param = field === "name"
+            ? { name: value.trim() }
+            : { email: value.trim().toLowerCase() };
+          const { data } = await axios.get("/api/users/check", { params: param });
+          setLiveErrors((e) => ({
+            ...e,
+            [field]: data[field] ? `${field === "name" ? "Name" : "Email"} is already taken.` : "",
+          }));
+        } catch { /* ignore */ }
+        setChecking((s) => { const next = new Set(s); next.delete(field); return next; });
+      }, 400);
+    }
+  }
+
+  function fieldClass(field: string, extra = "") {
+    const err = touched.has(field) && liveErrors[field];
+    const ok = touched.has(field) && !liveErrors[field] && !checking.has(field);
+    const state = err ? "border-red-500 focus-visible:ring-red-500" : ok ? "border-green-500 focus-visible:ring-green-500" : "";
+    return `${extra} ${state}`.trim();
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-1">
@@ -402,9 +489,11 @@ function UserForm({
         <Input
           id="name"
           value={form.name}
-          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          onChange={(e) => handleChange("name", e.target.value)}
           placeholder="Full name"
+          className={fieldClass("name")}
         />
+        {touched.has("name") && liveErrors.name && <p className="text-xs text-red-600">{liveErrors.name}</p>}
       </div>
       <div className="space-y-1">
         <Label htmlFor="email">Email</Label>
@@ -412,41 +501,57 @@ function UserForm({
           id="email"
           type="email"
           value={form.email}
-          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+          onChange={(e) => handleChange("email", e.target.value)}
           placeholder="user@example.com"
+          className={fieldClass("email")}
         />
+        {touched.has("email") && liveErrors.email && <p className="text-xs text-red-600">{liveErrors.email}</p>}
       </div>
       {showPassword && (
         <div className="space-y-1">
           <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            value={form.password}
-            onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-            placeholder="Min. 8 characters"
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={peekPassword ? "text" : "password"}
+              value={form.password}
+              onChange={(e) => handleChange("password", e.target.value)}
+              placeholder="Min. 8 characters"
+              className={fieldClass("password", "pr-9")}
+            />
+            <button
+              type="button"
+              onClick={() => setPeekPassword((v) => !v)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              tabIndex={-1}
+            >
+              {peekPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          {touched.has("password") && liveErrors.password && <p className="text-xs text-red-600">{liveErrors.password}</p>}
         </div>
       )}
-      <div className="space-y-1">
-        <Label htmlFor="role">Role</Label>
-        <Select
-          value={form.role}
-          onValueChange={(value) => setForm((f) => ({ ...f, role: value as "ADMIN" | "AGENT" }))}
-          disabled={disableRole}
-        >
-          <SelectTrigger id="role">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="AGENT">Agent</SelectItem>
-            <SelectItem value="ADMIN">Admin</SelectItem>
-          </SelectContent>
-        </Select>
-        {disableRole && (
-          <p className="text-xs text-gray-400">You cannot change your own role.</p>
-        )}
-      </div>
+      {showRole && (
+        <div className="space-y-1">
+          <Label htmlFor="role">Role</Label>
+          <Select
+            value={form.role}
+            onValueChange={(value) => setForm((f) => ({ ...f, role: value as "ADMIN" | "AGENT" }))}
+            disabled={disableRole}
+          >
+            <SelectTrigger id="role">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="AGENT">Agent</SelectItem>
+              <SelectItem value="ADMIN">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+          {disableRole && (
+            <p className="text-xs text-gray-400">You cannot change your own role.</p>
+          )}
+        </div>
+      )}
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
