@@ -33,6 +33,40 @@ An AI-powered support ticket management system for handling student support emai
 | `bun run --filter client dev` | Start client only |
 | `bun test:e2e` | Run Playwright E2E tests |
 
+## Component Testing
+
+Use **Vitest** + **React Testing Library** for component tests in the `client/` package.
+
+### Commands
+| Command | Purpose |
+|---------|---------|
+| `bun run --filter client test` | Run all component tests once |
+| `bun run --filter client test:watch` | Watch mode — re-runs on file change |
+| `bun run --filter client test:ui` | Browser UI — interactive dashboard for writing tests |
+
+### Setup
+- Test environment: `jsdom` (configured in `client/vite.config.ts`)
+- Global matchers: `@testing-library/jest-dom` (loaded via `client/src/test/setup.ts`)
+- Test files: co-located with the component, named `*.test.tsx`
+
+### Writing tests
+- Use `renderWithProviders` from `client/src/test/renderWithProviders.tsx` — it wraps the component in `QueryClientProvider` + `MemoryRouter`
+- Mock `axios` with a factory so all methods are `vi.fn()`:
+  ```ts
+  vi.mock("axios", () => ({
+    default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  }));
+  const ax = vi.mocked(axios);
+  ```
+- Mock `authClient.useSession` from `../lib/auth-client` to control session state
+- Always call `afterEach(() => vi.useRealTimers())` when any test uses `vi.useFakeTimers()` — fake timers bleed into later tests and break `@base-ui/react` portals (they use `requestAnimationFrame`)
+- Use `fireEvent.click()` for buttons that open `@base-ui/react` dialogs — `userEvent.click()` hangs due to focus-trap internals
+- Use `userEvent.setup({ delay: null })` for typing into inputs
+- Find dialog content by heading (`findByRole("heading", { name: /.../ })`) rather than `role="dialog"` — the popup role may not be set until after animation
+
+### After writing tests, always run them
+Run `bun run --filter client test` and fix any failures before reporting the task as done.
+
 ## E2E Testing
 
 Always use the **`playwright-e2e-writer`** agent when writing or expanding E2E tests. Invoke it whenever:

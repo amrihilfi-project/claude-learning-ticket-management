@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import NavBar from "../components/NavBar";
+import { Skeleton } from "../components/ui/skeleton";
 import { authClient } from "../lib/auth-client";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -203,11 +204,22 @@ export default function UsersPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
-                    Loading...
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-t border-gray-100">
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-44" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-5 w-14 rounded-full" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 justify-end">
+                        <Skeleton className="h-7 w-12 rounded-md" />
+                        <Skeleton className="h-7 w-20 rounded-md" />
+                        <Skeleton className="h-7 w-14 rounded-md" />
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
@@ -276,17 +288,21 @@ export default function UsersPage() {
           </table>
         </div>
 
-        {!isLoading && total > 0 && (
+        {(isLoading || total > 0) && (
           <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
+            {isLoading ? (
+            <Skeleton className="h-4 w-48" />
+          ) : (
             <span>
               Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total} users
             </span>
+          )}
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+              <Button variant="outline" size="sm" disabled={isLoading || page === 1} onClick={() => setPage((p) => p - 1)}>
                 Previous
               </Button>
-              <span>Page {page} of {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>
+              {isLoading ? <Skeleton className="h-4 w-24" /> : <span>Page {page} of {totalPages}</span>}
+              <Button variant="outline" size="sm" disabled={isLoading || page === totalPages} onClick={() => setPage((p) => p + 1)}>
                 Next
               </Button>
             </div>

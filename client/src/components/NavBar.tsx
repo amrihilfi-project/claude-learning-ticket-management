@@ -13,7 +13,7 @@ export default function NavBar() {
   return (
     <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
       <div className="flex items-center gap-6">
-        <span className="font-semibold text-gray-900">Ticket Management</span>
+        <Link to="/" className="font-semibold text-gray-900 hover:text-gray-700 transition-colors">Ticket Management</Link>
         {session?.user?.role === "ADMIN" && (
           <Link to="/users" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
             Users
