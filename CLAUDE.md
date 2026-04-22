@@ -18,6 +18,8 @@ An AI-powered support ticket management system for handling student support emai
 /
 ├── client/          # React frontend (Vite dev server on :5173)
 ├── server/          # Express backend (:3000)
+├── e2e/             # Playwright E2E tests
+├── playwright.config.ts
 ├── package.json     # Bun workspace root
 └── docker-compose.yml
 ```
@@ -29,6 +31,19 @@ An AI-powered support ticket management system for handling student support emai
 | `bun run --filter '*' dev` | Start both client and server |
 | `bun run --filter server dev` | Start server only |
 | `bun run --filter client dev` | Start client only |
+| `bun test:e2e` | Run Playwright E2E tests |
+
+## E2E Testing
+- **Framework**: Playwright (Chromium only)
+- **Test files**: `e2e/*.spec.ts`
+- **Config**: `playwright.config.ts` at repo root
+- **Test server**: Express on :3001, Vite on :5174
+- **Test database**: PostgreSQL on port 5433, DB `ticket_management_test` (separate from dev DB on 5432)
+- **Env**: `.env.test` at repo root (gitignored)
+- **Global setup**: runs `prisma migrate reset --force` then seeds admin user before each run
+- **Test credentials**: `admin@test.com` / `test-admin-password-123`
+- **Rate limiting**: disabled outside `NODE_ENV=production` — no interference with tests
+- Start test DB before running: `docker compose up postgres-test -d`
 
 ## Documentation
 Always use Context7 MCP to fetch current documentation for any library or framework used in this project — including Bun, Express, React, React Router, Vite, Prisma, TailwindCSS, and the Claude API.
