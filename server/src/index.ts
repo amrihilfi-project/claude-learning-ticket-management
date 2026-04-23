@@ -17,6 +17,22 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL?.split(",") || ["http://localhost:5173", "http://localhost:5174"], credentials: true }));
 
+// Block sign-in for soft-deleted users before Better Auth processes it
+app.post("/api/auth/sign-in/email", express.json(), async (req, res, next) => {
+  const { email } = req.body ?? {};
+  if (email) {
+    const user = await prisma.user.findUnique({
+      where: { email: String(email).toLowerCase() },
+      select: { isActive: true },
+    });
+    if (user && !user.isActive) {
+      res.status(403).json({ error: "Account is disabled" });
+      return;
+    }
+  }
+  next();
+});
+
 // Better Auth handler must be mounted before express.json()
 if (process.env.NODE_ENV === "production") {
   const authLimiter = rateLimit({
