@@ -8,7 +8,11 @@ An AI-powered support ticket management system for handling student support emai
 - **Frontend**: React 18, TypeScript, Vite, TailwindCSS, React Router v7 (`client/`)
 - **Backend**: Node.js, Express, TypeScript, Prisma (`server/`)
 - **Database**: PostgreSQL
-- **AI**: Claude API (Sonnet 4.6)
+### AI Integration & External Services
+- **AI Provider**: Gemini API (Gemini 2.5 Flash) via `@google/genai` SDK.
+- **Workflow**: Synchronous processing during webhook ingestion (no queueing for now).
+- **Error Handling**: AI failures are caught and logged. They never prevent a ticket from being created or updated. AI features are always best-effort.
+- **Testing AI**: For automated tests, the `GEMINI_API_KEY` is set to `test-key` in `.env.test`. The `server/src/lib/ai.ts` module checks for this dummy key and returns deterministic mocked strings instead of hitting the actual API. This ensures E2E tests are fast, reliable, and don't incur API costs.
 - **Auth**: Better Auth — email/password, sessions in PostgreSQL via Prisma adapter, RBAC (ADMIN / AGENT roles), sign-up disabled (users seeded by admin script)
 - **Deployment**: Docker + Docker Compose
 
@@ -76,7 +80,7 @@ Always use the **`playwright-e2e-writer`** agent when writing or expanding E2E t
 The agent owns all Playwright configuration, test setup details, and best-practice patterns for this project.
 
 ## Documentation
-Always use Context7 MCP to fetch current documentation for any library or framework used in this project — including Bun, Express, React, React Router, Vite, Prisma, TailwindCSS, and the Claude API.
+Always use Context7 MCP to fetch current documentation for any library or framework used in this project — including Bun, Express, React, React Router, Vite, Prisma, TailwindCSS, and the Gemini API.
 
 Steps:
 1. Call `resolve-library-id` with the library name and your question

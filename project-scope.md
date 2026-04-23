@@ -9,7 +9,7 @@ Build a ticket management system that uses AI to automatically classify, respond
 ## Features 
 
 - Receive support emails and create tickets
-- Auto-generate human-friendly responses using a knowledge base
+- Auto-generate human-friendly responses using AI (knowledge base integration planned for later)
 - Ticket list with filtering and sorting
 - Ticket detail view
 - AI-powered ticket classification

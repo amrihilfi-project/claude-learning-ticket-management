@@ -2,6 +2,7 @@ import { Router } from "express";
 import { inboundEmailSchema } from "core";
 import { requireWebhookSecret } from "../middleware/webhookSecret";
 import prisma from "../lib/prisma";
+import { classifyTicket, summarizeTicket, suggestReply } from "../lib/ai";
 
 const router = Router();
 
@@ -46,9 +47,10 @@ router.post("/inbound-email", requireWebhookSecret, async (req, res) => {
       });
     }
 
+    let newTicket = null;
     if (!parentTicket) {
       // New ticket
-      const ticket = await prisma.ticket.create({
+      newTicket = await prisma.ticket.create({
         data: {
           subject,
           body: textBody,
@@ -58,7 +60,7 @@ router.post("/inbound-email", requireWebhookSecret, async (req, res) => {
       });
       await prisma.ticketMessage.create({
         data: {
-          ticketId: ticket.id,
+          ticketId: newTicket.id,
           body: textBody,
           fromStudent: true,
           emailMessageId: messageId,
@@ -92,6 +94,37 @@ router.post("/inbound-email", requireWebhookSecret, async (req, res) => {
         where: { id: parentTicket.id },
         data: { status: "OPEN", updatedAt: new Date() },
       });
+    }
+
+    const targetTicketId = parentTicket ? parentTicket.id : newTicket?.id;
+
+    if (targetTicketId) {
+      try {
+        const fullTicket = await prisma.ticket.findUnique({
+          where: { id: targetTicketId },
+          include: { messages: { orderBy: { createdAt: "asc" } } }
+        });
+        
+        if (fullTicket) {
+          const isNew = !parentTicket;
+          const msgs = fullTicket.messages.map(m => ({ body: m.body, fromStudent: m.fromStudent }));
+          
+          let category = fullTicket.category;
+          if (isNew) {
+            category = await classifyTicket(fullTicket.subject, fullTicket.body);
+          }
+          
+          const summary = await summarizeTicket(fullTicket.subject, fullTicket.body, msgs);
+          const suggestedReply = await suggestReply(fullTicket.subject, fullTicket.body, msgs, category);
+          
+          await prisma.ticket.update({
+            where: { id: fullTicket.id },
+            data: { category, summary, suggestedReply }
+          });
+        }
+      } catch (err) {
+        console.error("AI Enrichment failed:", err);
+      }
     }
 
     res.status(200).json({ ok: true });

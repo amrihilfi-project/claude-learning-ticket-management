@@ -20,8 +20,7 @@ An AI-powered support ticket management system that automatically classifies, su
 | Frontend | React 18, TypeScript, TailwindCSS, React Router v7 |
 | Backend | Node.js, Express, Prisma |
 | Database | PostgreSQL |
-| AI | Claude API (Sonnet 4.6) |
-| Queue | Redis + BullMQ |
+| AI | Gemini API (Gemini 2.5 Flash) |
 | Auth | Database sessions |
 | Deployment | Docker + Docker Compose |
 

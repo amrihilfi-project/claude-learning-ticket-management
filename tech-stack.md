@@ -15,13 +15,11 @@
 - PostgreSQL
 
 ### AI
-- Claude API (Sonnet 4.6) — classification, summarization, suggested replies
+- Gemini API (Gemini 2.5 Flash) — classification, summarization, suggested replies
 
 ### Email Ingestion
 - SendGrid Inbound Parse or Postmark — webhook on incoming email creates a ticket
 
-### Queue
-- Redis + BullMQ — async AI processing so email ingestion is non-blocking
 
 ### Authentication
 - Better Auth — session-based auth stored in PostgreSQL via Prisma adapter

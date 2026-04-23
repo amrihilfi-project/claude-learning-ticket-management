@@ -62,7 +62,7 @@
 ### Phase 7 — Polish & Hardening
 - [ ] Input validation and error handling across all endpoints
 - [ ] Rate limiting on webhook endpoint
-- [ ] PII awareness (review what gets sent to Claude API)
+- [ ] PII awareness (review what gets sent to Gemini API)
 - [ ] Basic logging and error monitoring
 - [ ] End-to-end test of full ticket lifecycle
 - [ ] Production Docker Compose config (env vars, secrets)

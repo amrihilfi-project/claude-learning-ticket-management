@@ -132,12 +132,13 @@ test.describe("Ticket API — inbound-email webhook", () => {
     expect(ticket.status).toBe("OPEN");
   });
 
-  test("new ticket has no category and no assignee", async ({ page }) => {
+  test("new ticket receives an AI category and no assignee", async ({ page }) => {
     const payload = await sendInboundEmail(page);
 
     const ticket = await findTicketBySubject(page, payload.subject);
 
-    expect(ticket.category).toBeNull();
+    // Because the mock returns GENERAL_QUESTION when the key is "test-key"
+    expect(ticket.category).toBe("GENERAL_QUESTION");
     expect(ticket.assigneeId).toBeNull();
   });
 
@@ -1005,5 +1006,52 @@ test.describe("Ticket UI — detail page /tickets/:id", () => {
 
     // Badge should show OPEN since the student reply reopened it
     await expect(page.getByText("Open").first()).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ticket UI — AI Assistant
+// ---------------------------------------------------------------------------
+
+test.describe("Ticket UI — AI Assistant", () => {
+  test("AI summary and suggested reply appear on detail page", async ({ page }) => {
+    const payload = await sendInboundEmail(page);
+    const { id } = await findTicketBySubject(page, payload.subject);
+
+    await goToTicketDetail(page, id, payload.subject);
+
+    // AI summary
+    await expect(page.getByRole("heading", { name: /AI Summary/i })).toBeVisible();
+    await expect(page.getByText("This is a mocked summary for testing purposes.")).toBeVisible();
+
+    // Suggested reply
+    await expect(page.getByRole("heading", { name: /Suggested Reply/i })).toBeVisible();
+    await expect(page.getByText("This is a mocked suggested reply for testing purposes.")).toBeVisible();
+  });
+
+  test("Use as Reply populates the reply textarea", async ({ page }) => {
+    const payload = await sendInboundEmail(page);
+    const { id } = await findTicketBySubject(page, payload.subject);
+
+    await goToTicketDetail(page, id, payload.subject);
+
+    await page.getByRole("button", { name: /Use as Reply/i }).click();
+
+    // The textarea should be populated
+    const textarea = page.getByLabel(/reply/i);
+    await expect(textarea).toHaveValue("This is a mocked suggested reply for testing purposes.");
+  });
+
+  test("Regenerate updates AI content", async ({ page }) => {
+    const payload = await sendInboundEmail(page);
+    const { id } = await findTicketBySubject(page, payload.subject);
+
+    await goToTicketDetail(page, id, payload.subject);
+
+    // Click regenerate
+    await page.getByRole("button", { name: /Regenerate ↻/i }).click();
+
+    // Wait for the button to show regenerating and then go back
+    await expect(page.getByRole("button", { name: /Regenerate ↻/i })).toBeVisible({ timeout: 10000 });
   });
 });

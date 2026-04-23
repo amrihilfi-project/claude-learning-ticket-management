@@ -2,6 +2,7 @@ import { Router } from "express";
 import { updateTicketSchema, createMessageSchema } from "core";
 import { requireSession } from "../middleware/session";
 import prisma from "../lib/prisma";
+import { summarizeTicket, suggestReply } from "../lib/ai";
 
 const router = Router();
 
@@ -146,6 +147,44 @@ router.post("/:id/messages", async (req, res) => {
   ]);
 
   res.status(201).json(message);
+});
+
+// ─── AI Regeneration ──────────────────────────────────────────────────────────
+
+router.post("/:id/ai-suggest", async (req, res) => {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: req.params.id },
+    include: {
+      messages: { orderBy: { createdAt: "asc" } },
+      assignee: { select: { id: true, name: true } },
+    },
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const msgs = ticket.messages.map(m => ({ body: m.body, fromStudent: m.fromStudent }));
+  
+  try {
+    const summary = await summarizeTicket(ticket.subject, ticket.body, msgs);
+    const suggestedReply = await suggestReply(ticket.subject, ticket.body, msgs, ticket.category);
+
+    const updated = await prisma.ticket.update({
+      where: { id: ticket.id },
+      data: { summary, suggestedReply },
+      include: {
+        assignee: { select: { id: true, name: true } },
+        messages: { orderBy: { createdAt: "asc" } },
+      },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    console.error("AI Regeneration Error:", err);
+    res.status(500).json({ error: "Failed to regenerate AI content" });
+  }
 });
 
 export default router;

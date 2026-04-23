@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { AiAssistantPanel } from "../components/AiAssistantPanel";
 
 type TicketMessage = {
   id: string;
@@ -27,6 +28,8 @@ type Ticket = {
   studentEmail: string;
   status: string;
   category: string | null;
+  summary?: string | null;
+  suggestedReply?: string | null;
   assignee: { id: string; name: string } | null;
   messages: TicketMessage[];
   createdAt: string;
@@ -193,6 +196,8 @@ export default function TicketDetailPage() {
             <TicketStatusBadge status={ticket.status} />
           </div>
         </div>
+
+        <AiAssistantPanel ticket={ticket} onUseReply={(text) => setReplyBody(text)} />
 
         <div className="space-y-3 mb-6">
           {ticket.messages.map((msg) => (
