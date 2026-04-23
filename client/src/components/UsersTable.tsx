@@ -20,9 +20,7 @@ type Props = {
   total: number;
   totalPages: number;
   limit: number;
-  togglePending: boolean;
   onEdit: (user: User) => void;
-  onToggle: (id: string) => void;
   onDelete: (user: User) => void;
   onPageChange: (page: number) => void;
 };
@@ -35,9 +33,7 @@ export function UsersTable({
   total,
   totalPages,
   limit,
-  togglePending,
   onEdit,
-  onToggle,
   onDelete,
   onPageChange,
 }: Props) {
@@ -54,7 +50,6 @@ export function UsersTable({
               <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Joined</th>
               <th className="px-4 py-3" />
             </tr>
@@ -66,12 +61,10 @@ export function UsersTable({
                   <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-44" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-5 w-14 rounded-full" /></td>
-                  <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
                       <Skeleton className="h-7 w-12 rounded-md" />
-                      <Skeleton className="h-7 w-20 rounded-md" />
                       <Skeleton className="h-7 w-14 rounded-md" />
                     </div>
                   </td>
@@ -79,7 +72,7 @@ export function UsersTable({
               ))
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
                   No users found.
                 </td>
               </tr>
@@ -98,14 +91,6 @@ export function UsersTable({
                       {user.role}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3">
-                    <Badge
-                      variant={user.isActive ? "default" : "destructive"}
-                      className={user.isActive ? "bg-green-100 text-green-700 hover:bg-green-100" : ""}
-                    >
-                      {user.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </td>
                   <td className="px-4 py-3 text-gray-500">
                     {new Date(user.createdAt).toLocaleDateString("en-US", {
                       year: "numeric",
@@ -118,15 +103,6 @@ export function UsersTable({
                       <Button variant="outline" size="sm" onClick={() => onEdit(user)}>
                         <Pencil size={14} />
                         Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isSelf(user.id) || togglePending}
-                        title={isSelf(user.id) ? "Cannot deactivate your own account" : undefined}
-                        onClick={() => onToggle(user.id)}
-                      >
-                        {user.isActive ? "Deactivate" : "Activate"}
                       </Button>
                       <Button
                         variant="destructive"

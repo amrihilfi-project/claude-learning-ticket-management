@@ -56,12 +56,13 @@ app.get("/api/users", requireSession, requireRole("ADMIN"), async (req, res) => 
 
   const where = search
     ? {
+        isActive: true,
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },
           { email: { contains: search, mode: "insensitive" as const } },
         ],
       }
-    : {};
+    : { isActive: true };
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
@@ -191,30 +192,6 @@ app.patch("/api/users/:id", requireSession, requireRole("ADMIN"), async (req, re
   res.json(updated);
 });
 
-app.patch("/api/users/:id/toggle-active", requireSession, requireRole("ADMIN"), async (req, res) => {
-  const { id } = req.params;
-  const currentUserId = res.locals.session.user.id;
-
-  if (id === currentUserId) {
-    res.status(403).json({ error: "Cannot deactivate your own account" });
-    return;
-  }
-
-  const target = await prisma.user.findUnique({ where: { id } });
-  if (!target) {
-    res.status(404).json({ error: "User not found" });
-    return;
-  }
-
-  const updated = await prisma.user.update({
-    where: { id },
-    data: { isActive: !target.isActive, updatedAt: new Date() },
-    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
-  });
-
-  res.json(updated);
-});
-
 app.delete("/api/users/:id", requireSession, requireRole("ADMIN"), async (req, res) => {
   const { id } = req.params;
   const currentUserId = res.locals.session.user.id;
@@ -225,12 +202,15 @@ app.delete("/api/users/:id", requireSession, requireRole("ADMIN"), async (req, r
   }
 
   const target = await prisma.user.findUnique({ where: { id } });
-  if (!target) {
+  if (!target || !target.isActive) {
     res.status(404).json({ error: "User not found" });
     return;
   }
 
-  await prisma.user.delete({ where: { id } });
+  await prisma.user.update({
+    where: { id },
+    data: { isActive: false, updatedAt: new Date() },
+  });
   res.status(204).send();
 });
 

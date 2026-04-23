@@ -96,31 +96,19 @@ describe("UsersPage", () => {
       await screen.findByText("AGENT");
     });
 
-    it("shows Active status badge", async () => {
-      renderPage();
-      await screen.findByText("Active");
-    });
-
-    it("shows Inactive status badge for deactivated user", async () => {
-      ax.get.mockResolvedValue({ data: usersResponse([makeUser({ isActive: false })]) });
-      renderPage();
-      await screen.findByText("Inactive");
-    });
-
     it("labels the current user row with (you)", async () => {
       ax.get.mockResolvedValue({ data: usersResponse([makeUser({ id: "admin-1" })]) });
       renderPage();
       await screen.findByText("(you)");
     });
 
-    it("disables Deactivate and Delete for the current user's row", async () => {
+    it("disables Delete for the current user's row", async () => {
       ax.get.mockResolvedValue({
         data: usersResponse([makeUser({ id: "admin-1", name: "Self User" })]),
       });
       renderPage();
       await screen.findByText("Self User");
       const row = screen.getByText("Self User").closest("tr")!;
-      expect(within(row).getByRole("button", { name: /deactivate/i })).toBeDisabled();
       expect(within(row).getByRole("button", { name: /delete/i })).toBeDisabled();
     });
 
@@ -375,19 +363,4 @@ describe("UsersPage", () => {
     });
   });
 
-  describe("Toggle active", () => {
-    it("calls toggle-active endpoint when Deactivate is clicked", async () => {
-      ax.get.mockResolvedValue({ data: usersResponse([makeUser()]) });
-      ax.patch.mockResolvedValue({ data: makeUser({ isActive: false }) });
-
-      renderPage();
-      await screen.findByText("Jane Agent");
-      const row = screen.getByText("Jane Agent").closest("tr")!;
-      fireEvent.click(within(row).getByRole("button", { name: /deactivate/i }));
-
-      await waitFor(() =>
-        expect(ax.patch).toHaveBeenCalledWith("/api/users/user-1/toggle-active")
-      );
-    });
-  });
 });

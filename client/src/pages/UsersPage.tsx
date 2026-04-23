@@ -90,12 +90,6 @@ export default function UsersPage() {
     onError: (err: any) => setFormError(err.response?.data?.error || "Failed to update user."),
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: (id: string) => axios.patch(`/api/users/${id}/toggle-active`),
-    onSuccess: () => invalidate(),
-    onError: (err: any) => setFormError(err.response?.data?.error || "Failed to update status."),
-  });
-
   const deleteMutation = useMutation({
     mutationFn: (id: string) => axios.delete(`/api/users/${id}`),
     onSuccess: () => {
@@ -180,9 +174,7 @@ export default function UsersPage() {
           total={total}
           totalPages={totalPages}
           limit={LIMIT}
-          togglePending={toggleMutation.isPending}
           onEdit={openEdit}
-          onToggle={(id) => toggleMutation.mutate(id)}
           onDelete={(user) => { setFormError(null); setDeleteUser(user); }}
           onPageChange={setPage}
         />
