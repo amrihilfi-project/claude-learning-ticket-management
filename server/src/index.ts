@@ -13,7 +13,7 @@ import { requireRole } from "./middleware/requireRole";
 
 const createUserSchema = z.object({
   name: z.string().min(1, "name is required").refine((v) => v.trim().length >= 3, "name must be at least 3 characters"),
-  email: z.string().min(1, "email is required").email("invalid email address"),
+  email: z.string().min(1, "email is required").email({ message: "invalid email address" }),
   password: z.string().min(8, "password must be at least 8 characters"),
   role: z.enum(["ADMIN", "AGENT"], { error: "role must be ADMIN or AGENT" }),
 });
