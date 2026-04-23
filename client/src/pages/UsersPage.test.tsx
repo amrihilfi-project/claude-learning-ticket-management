@@ -351,6 +351,28 @@ describe("UsersPage", () => {
       );
       expect(ax.delete).toHaveBeenCalledWith("/api/users/user-1");
     });
+
+    it("closes when Escape is pressed", async () => {
+      renderPage();
+      await screen.findByText("Jane Agent");
+      fireEvent.click(within(screen.getByText("Jane Agent").closest("tr")!).getByRole("button", { name: /delete/i }));
+      await screen.findByRole("heading", { name: /delete user/i });
+      fireEvent.keyDown(document, { key: "Escape" });
+      await waitFor(() =>
+        expect(screen.queryByRole("heading", { name: /delete user/i })).not.toBeInTheDocument()
+      );
+    });
+
+    it("closes when clicking outside the dialog", async () => {
+      renderPage();
+      await screen.findByText("Jane Agent");
+      fireEvent.click(within(screen.getByText("Jane Agent").closest("tr")!).getByRole("button", { name: /delete/i }));
+      await screen.findByRole("heading", { name: /delete user/i });
+      fireEvent.click(document.querySelector('[data-slot="dialog-overlay"]')!);
+      await waitFor(() =>
+        expect(screen.queryByRole("heading", { name: /delete user/i })).not.toBeInTheDocument()
+      );
+    });
   });
 
   describe("Toggle active", () => {
