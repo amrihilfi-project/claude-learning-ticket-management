@@ -298,14 +298,13 @@ test.describe("Authentication — session persistence across page reloads", () =
     page,
   }) => {
     await page.goto("/users");
-    await expect(page).toHaveURL("/users");
+    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
 
     await page.goBack();
-    await expect(page).toHaveURL(HOME_URL);
+    await expect(page.getByText("Welcome to Ticket Management")).toBeVisible();
 
     await page.goForward();
-    await page.waitForURL("/users");
-    await expect(page).toHaveURL("/users");
+    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
   });
 });
 

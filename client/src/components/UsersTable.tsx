@@ -22,6 +22,8 @@ type Props = {
   limit: number;
   onEdit: (user: User) => void;
   onDelete: (user: User) => void;
+  onDeactivate?: (user: User) => void;
+  onActivate?: (user: User) => void;
   onRestore?: (user: User) => void;
   onPageChange: (page: number) => void;
 };
@@ -36,6 +38,8 @@ export function UsersTable({
   limit,
   onEdit,
   onDelete,
+  onDeactivate,
+  onActivate,
   onRestore,
   onPageChange,
 }: Props) {
@@ -52,6 +56,7 @@ export function UsersTable({
               <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Joined</th>
               <th className="px-4 py-3" />
             </tr>
@@ -62,6 +67,7 @@ export function UsersTable({
                 <tr key={i} className="border-t border-gray-100">
                   <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-44" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-5 w-14 rounded-full" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-5 w-14 rounded-full" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
                   <td className="px-4 py-3">
@@ -74,7 +80,7 @@ export function UsersTable({
               ))
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                   No users found.
                 </td>
               </tr>
@@ -91,6 +97,11 @@ export function UsersTable({
                   <td className="px-4 py-3">
                     <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>
                       {user.role}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={user.isActive ? "default" : "secondary"}>
+                      {user.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-gray-500">
@@ -112,6 +123,25 @@ export function UsersTable({
                             <Pencil size={14} />
                             Edit
                           </Button>
+                          {user.isActive ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isSelf(user.id)}
+                              title={isSelf(user.id) ? "Cannot deactivate your own account" : undefined}
+                              onClick={() => onDeactivate?.(user)}
+                            >
+                              Deactivate
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onActivate?.(user)}
+                            >
+                              Activate
+                            </Button>
+                          )}
                           <Button
                             variant="destructive"
                             size="sm"

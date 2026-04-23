@@ -592,6 +592,47 @@ test.describe("User Management — delete user", () => {
 
 // ---------------------------------------------------------------------------
 
+test.describe("User Management — soft delete and restore", () => {
+  test("deleted users appear in the deleted view and can be restored", async ({ page }) => {
+    const user = uniqueUser();
+    await createUserViaApi(page, user);
+
+    await goToUsersPage(page);
+
+    const row = rowByText(page, user.email);
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.getByRole("button", { name: /delete/i }).click();
+
+    await expect(dialogTitle(page, /delete user/i)).toBeVisible();
+    await page
+      .locator('[data-slot="dialog-content"]')
+      .getByRole("button", { name: /^delete$/i })
+      .click();
+
+    await expect(dialogTitle(page, /delete user/i)).not.toBeVisible({ timeout: 8000 });
+    await expect(rowByText(page, user.email)).not.toBeVisible({ timeout: 10000 });
+
+    // Switch to Deleted view
+    await page.getByRole("button", { name: /view deleted/i }).click();
+
+    // User should appear here
+    const deletedRow = rowByText(page, user.email);
+    await expect(deletedRow).toBeVisible({ timeout: 10000 });
+    
+    // Restore the user
+    await deletedRow.getByRole("button", { name: /restore/i }).click();
+    await expect(deletedRow).not.toBeVisible({ timeout: 10000 });
+
+    // Switch back to Active view
+    await page.getByRole("button", { name: /view active/i }).click();
+
+    // User should be back in the active list
+    await expect(rowByText(page, user.email)).toBeVisible({ timeout: 10000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+
 test.describe("User Management — search", () => {
   test("search by name filters the list to matching users only", async ({ page }) => {
     const userA = uniqueUser();

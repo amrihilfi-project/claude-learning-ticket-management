@@ -9,7 +9,6 @@ An AI-powered support ticket management system for handling student support emai
 - **Backend**: Node.js, Express, TypeScript, Prisma (`server/`)
 - **Database**: PostgreSQL
 - **AI**: Claude API (Sonnet 4.6)
-- **Queue**: Redis + BullMQ
 - **Auth**: Better Auth — email/password, sessions in PostgreSQL via Prisma adapter, RBAC (ADMIN / AGENT roles), sign-up disabled (users seeded by admin script)
 - **Deployment**: Docker + Docker Compose
 
@@ -115,6 +114,7 @@ Use **Zod** for all input validation — both client and server.
 - Role check: `(session?.user as any)?.role` — role is an `additionalFields` field, not typed in the SDK
 - Route protection: `<ProtectedRoute roles={["ADMIN"]}>` — non-matching roles redirect to `/`
 - New users: seeded via scripts in `server/prisma/` using `hashPassword` from `better-auth/crypto` + Prisma `user` + `account` records
+- Sign-in is blocked for soft-deleted users (`deletedAt !== null`) — enforced in the Better Auth server config
 
 ## Key Decisions
 - API calls from client to `/api/*` are proxied to the server via Vite config
@@ -122,6 +122,7 @@ Use **Zod** for all input validation — both client and server.
 - Refund Request tickets route to a dedicated queue, never auto-responded
 - Ticket statuses: open → pending → resolved → closed (auto-close after 24h)
 - Tickets reopen automatically if student replies to a resolved/closed ticket
+- For users there are no hard deletes, only soft deletes (`deletedAt` timestamp). Deactivate (`isActive: false`) and Delete are separate actions. Deleted users can be viewed in the "Deleted" view and restored via the Restore action (admin only).
 
 ## Related Docs
 - [Project Scope](./project-scope.md)

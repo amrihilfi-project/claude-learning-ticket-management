@@ -30,26 +30,23 @@
 ---
 
 ### Phase 4 — Ticket Core & UI
-- [ ] Design `tickets` table (status, category, assignee, timestamps)
-- [ ] Build email ingestion webhook endpoint (SendGrid or Postmark)
-- [ ] Parse incoming email → create ticket in database
-- [ ] Implement ticket status transitions (open → pending → resolved → closed)
-- [ ] Implement 24h auto-close job (BullMQ scheduled job)
-- [ ] Implement auto-reopen on student reply
-- [ ] Ticket list page with filtering (status, category) and sorting
-- [ ] Ticket detail page (thread view, status controls, assignee)
-- [ ] Dashboard with ticket counts by status and category
-- [ ] Pagination for ticket list
+- [x] Design `tickets` table (status, category, assignee, timestamps, emailMessageId for threading)
+- [x] Build email ingestion webhook endpoint (SendGrid / Mailgun compatible — secret via query param)
+- [x] Parse incoming email → create ticket in database (synchronous, no queue)
+- [x] Implement ticket status transitions (open → pending → resolved → closed)
+- [x] Implement 24h auto-close (setInterval poller — no external queue needed)
+- [x] Implement auto-reopen on student reply
+- [x] Ticket list page with filtering (status, category) and sorting
+- [x] Ticket detail page (thread view, status controls, assignee)
+- [x] Dashboard with ticket counts by status and category
+- [x] Pagination for ticket list
 
 ---
 
 ### Phase 5 — AI Features
-- [ ] Set up Claude API client
+- [ ] Set up Gemini API client
 - [ ] Implement AI ticket classification (assign category on ingestion)
 - [ ] Implement AI ticket summarization
-- [ ] Set up knowledge base storage
-- [ ] Implement AI suggested reply (uses knowledge base context)
-- [ ] Queue all AI tasks via BullMQ (non-blocking)
 - [ ] Display AI summary and suggested reply in ticket detail view
 - [ ] Agent approve/edit/send reply flow
 
@@ -69,3 +66,7 @@
 - [ ] Basic logging and error monitoring
 - [ ] End-to-end test of full ticket lifecycle
 - [ ] Production Docker Compose config (env vars, secrets)
+
+### Phase 8 - Evaluation
+- [x] Create an extremely detailed list on what was done to reach this built so that I can reference it to build it again.
+ 

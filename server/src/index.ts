@@ -10,6 +10,9 @@ import { auth } from "./lib/auth";
 import prisma from "./lib/prisma";
 import { requireSession } from "./middleware/session";
 import { requireRole } from "./middleware/requireRole";
+import webhooksRouter from "./routes/webhooks";
+import ticketsRouter from "./routes/tickets";
+import { startAutoClosePoller } from "./lib/auto-close";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,15 +20,15 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL?.split(",") || ["http://localhost:5173", "http://localhost:5174"], credentials: true }));
 
-// Block sign-in for soft-deleted users before Better Auth processes it
+// Block sign-in for deactivated or deleted users before Better Auth processes it
 app.post("/api/auth/sign-in/email", express.json(), async (req, res, next) => {
   const { email } = req.body ?? {};
   if (email) {
     const user = await prisma.user.findUnique({
       where: { email: String(email).toLowerCase() },
-      select: { isActive: true },
+      select: { isActive: true, deletedAt: true },
     });
-    if (user && !user.isActive) {
+    if (user && (!user.isActive || user.deletedAt !== null)) {
       res.status(403).json({ error: "Account is disabled" });
       return;
     }
@@ -69,17 +72,21 @@ app.get("/api/users", requireSession, requireRole("ADMIN"), async (req, res) => 
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
   const skip = (page - 1) * limit;
-  const isActive = req.query.deleted === "true" ? false : true;
+  const showDeleted = req.query.deleted === "true";
+
+  // Main list: non-deleted users (deletedAt IS NULL), both active and inactive
+  // Deleted view: soft-deleted users (deletedAt IS NOT NULL)
+  const deletedFilter = showDeleted ? { not: null } : null;
 
   const where = search
     ? {
-        isActive,
+        deletedAt: deletedFilter,
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },
           { email: { contains: search, mode: "insensitive" as const } },
         ],
       }
-    : { isActive };
+    : { deletedAt: deletedFilter };
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
@@ -94,6 +101,7 @@ app.get("/api/users", requireSession, requireRole("ADMIN"), async (req, res) => 
 
   res.json({ data: users, total, page, limit });
 });
+
 
 app.get("/api/users/check", requireSession, requireRole("ADMIN"), async (req, res) => {
   const result: { name?: boolean; email?: boolean } = {};
@@ -170,7 +178,7 @@ app.post("/api/users", requireSession, requireRole("ADMIN"), async (req, res) =>
 app.patch("/api/users/:id", requireSession, requireRole("ADMIN"), async (req, res) => {
   const { id } = req.params;
   const currentUserId = res.locals.session.user.id;
-  const { name, email, role } = req.body as { name?: string; email?: string; role?: string };
+  const { name, email, role, isActive } = req.body as { name?: string; email?: string; role?: string; isActive?: boolean };
 
   if (role && id === currentUserId) {
     res.status(403).json({ error: "Cannot change your own role" });
@@ -178,6 +186,10 @@ app.patch("/api/users/:id", requireSession, requireRole("ADMIN"), async (req, re
   }
   if (role && !["ADMIN", "AGENT"].includes(role)) {
     res.status(400).json({ error: "role must be ADMIN or AGENT" });
+    return;
+  }
+  if (isActive === false && id === currentUserId) {
+    res.status(403).json({ error: "Cannot deactivate your own account" });
     return;
   }
 
@@ -201,6 +213,7 @@ app.patch("/api/users/:id", requireSession, requireRole("ADMIN"), async (req, re
       ...(name ? { name: name.trim() } : {}),
       ...(email ? { email: email.toLowerCase().trim() } : {}),
       ...(role ? { role: role as "ADMIN" | "AGENT" } : {}),
+      ...(isActive !== undefined ? { isActive } : {}),
       updatedAt: new Date(),
     },
     select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
@@ -219,14 +232,14 @@ app.delete("/api/users/:id", requireSession, requireRole("ADMIN"), async (req, r
   }
 
   const target = await prisma.user.findUnique({ where: { id } });
-  if (!target || !target.isActive) {
+  if (!target || target.deletedAt !== null) {
     res.status(404).json({ error: "User not found" });
     return;
   }
 
   await prisma.user.update({
     where: { id },
-    data: { isActive: false, updatedAt: new Date() },
+    data: { deletedAt: new Date(), updatedAt: new Date() },
   });
   res.status(204).send();
 });
@@ -235,14 +248,14 @@ app.patch("/api/users/:id/restore", requireSession, requireRole("ADMIN"), async 
   const { id } = req.params;
 
   const target = await prisma.user.findUnique({ where: { id } });
-  if (!target || target.isActive) {
+  if (!target || target.deletedAt === null) {
     res.status(404).json({ error: "User not found" });
     return;
   }
 
   const restored = await prisma.user.update({
     where: { id },
-    data: { isActive: true, updatedAt: new Date() },
+    data: { deletedAt: null, isActive: true, updatedAt: new Date() },
     select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
   });
 
@@ -255,6 +268,15 @@ app.get("/api/admin", requireSession, requireRole("ADMIN"), (_req, res) => {
   res.json({ message: "Admin access granted" });
 });
 
+// ─── Webhooks ─────────────────────────────────────────────────────────────────
+
+app.use("/api/webhooks", webhooksRouter);
+
+// ─── Tickets ──────────────────────────────────────────────────────────────────
+
+app.use("/api/tickets", ticketsRouter);
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  startAutoClosePoller();
 });

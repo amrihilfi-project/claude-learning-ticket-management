@@ -100,6 +100,18 @@ export default function UsersPage() {
     onError: (err: any) => setFormError(err.response?.data?.error || "Failed to update user."),
   });
 
+  const deactivateMutation = useMutation({
+    mutationFn: (id: string) => axios.patch(`/api/users/${id}`, { isActive: false }),
+    onSuccess: () => { invalidate(); },
+    onError: (err: any) => setFormError(err.response?.data?.error || "Failed to deactivate user."),
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: (id: string) => axios.patch(`/api/users/${id}`, { isActive: true }),
+    onSuccess: () => { invalidate(); },
+    onError: (err: any) => setFormError(err.response?.data?.error || "Failed to activate user."),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => axios.delete(`/api/users/${id}`),
     onSuccess: () => {
@@ -206,6 +218,8 @@ export default function UsersPage() {
           totalPages={totalPages}
           limit={LIMIT}
           onEdit={openEdit}
+          onDeactivate={!showDeleted ? (user) => { setFormError(null); deactivateMutation.mutate(user.id); } : undefined}
+          onActivate={!showDeleted ? (user) => { setFormError(null); activateMutation.mutate(user.id); } : undefined}
           onDelete={(user) => { setFormError(null); setDeleteUser(user); }}
           onRestore={showDeleted ? (user) => { setRestoreError(null); restoreMutation.mutate(user.id); } : undefined}
           onPageChange={setPage}
