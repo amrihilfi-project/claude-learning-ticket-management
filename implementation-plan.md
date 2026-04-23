@@ -23,23 +23,19 @@
 ---
 
 ### Phase 3 — User Management (Admin)
-- [ ] Admin-only user list page
-- [ ] Create / deactivate agent accounts
-- [ ] Assign roles (admin, agent)
+- [x] Admin-only user list page
+- [x] Create / deactivate agent accounts
+- [x] Assign roles (admin, agent)
 
 ---
 
-### Phase 4 — Ticket Core
+### Phase 4 — Ticket Core & UI
 - [ ] Design `tickets` table (status, category, assignee, timestamps)
 - [ ] Build email ingestion webhook endpoint (SendGrid or Postmark)
 - [ ] Parse incoming email → create ticket in database
 - [ ] Implement ticket status transitions (open → pending → resolved → closed)
 - [ ] Implement 24h auto-close job (BullMQ scheduled job)
 - [ ] Implement auto-reopen on student reply
-
----
-
-### Phase 5 — Ticket UI
 - [ ] Ticket list page with filtering (status, category) and sorting
 - [ ] Ticket detail page (thread view, status controls, assignee)
 - [ ] Dashboard with ticket counts by status and category
@@ -47,7 +43,7 @@
 
 ---
 
-### Phase 6 — AI Features
+### Phase 5 — AI Features
 - [ ] Set up Claude API client
 - [ ] Implement AI ticket classification (assign category on ingestion)
 - [ ] Implement AI ticket summarization
@@ -59,14 +55,14 @@
 
 ---
 
-### Phase 7 — Routing & Refund Handling
+### Phase 6 — Routing & Refund Handling
 - [ ] Implement routing logic (Refund → dedicated queue, others → general pool)
 - [ ] Flag Refund Request tickets visually in the UI
 - [ ] Suppress auto-actions on Refund tickets (no auto-assign, agent-only)
 
 ---
 
-### Phase 8 — Polish & Hardening
+### Phase 7 — Polish & Hardening
 - [ ] Input validation and error handling across all endpoints
 - [ ] Rate limiting on webhook endpoint
 - [ ] PII awareness (review what gets sent to Claude API)
