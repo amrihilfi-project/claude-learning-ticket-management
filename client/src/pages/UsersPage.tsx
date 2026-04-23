@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { z } from "zod";
+import { createUserSchema } from "core";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import NavBar from "../components/NavBar";
@@ -50,11 +50,6 @@ type UsersResponse = {
 
 const LIMIT = 10;
 
-const createUserSchema = z.object({
-  name: z.string().min(1, "Name is required.").refine((v) => v.trim().length >= 3, "Name must be at least 3 characters."),
-  email: z.string().min(1, "Email is required.").email({ message: "Enter a valid email address." }),
-  password: z.string().min(1, "Password is required.").min(8, "Password must be at least 8 characters."),
-});
 
 function validateField(field: "name" | "email" | "password", value: string): string {
   const result = createUserSchema.shape[field].safeParse(value);

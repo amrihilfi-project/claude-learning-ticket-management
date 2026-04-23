@@ -5,18 +5,11 @@ import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import { toNodeHandler } from "better-auth/node";
 import { hashPassword } from "better-auth/crypto";
-import { z } from "zod";
+import { createUserSchema } from "core";
 import { auth } from "./lib/auth";
 import prisma from "./lib/prisma";
 import { requireSession } from "./middleware/session";
 import { requireRole } from "./middleware/requireRole";
-
-const createUserSchema = z.object({
-  name: z.string().min(1, "name is required").refine((v) => v.trim().length >= 3, "name must be at least 3 characters"),
-  email: z.string().min(1, "email is required").email({ message: "invalid email address" }),
-  password: z.string().min(8, "password must be at least 8 characters"),
-  role: z.enum(["ADMIN", "AGENT"], { error: "role must be ADMIN or AGENT" }),
-});
 
 const app = express();
 const PORT = process.env.PORT || 3000;

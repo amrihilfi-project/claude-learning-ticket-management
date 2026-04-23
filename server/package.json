@@ -8,6 +8,7 @@
     "seed": "bun run prisma/seed.ts"
   },
   "dependencies": {
+    "core": "workspace:*",
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
     "better-auth": "^1.6.5",
