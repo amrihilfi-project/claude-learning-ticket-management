@@ -44,11 +44,11 @@
 ---
 
 ### Phase 5 — AI Features
-- [ ] Set up Gemini API client
-- [ ] Implement AI ticket classification (assign category on ingestion)
-- [ ] Implement AI ticket summarization
-- [ ] Display AI summary and suggested reply in ticket detail view
-- [ ] Agent approve/edit/send reply flow
+- [x] Set up Gemini API client
+- [x] Implement AI ticket classification (assign category on ingestion)
+- [x] Implement AI ticket summarization
+- [x] Display AI summary and suggested reply in ticket detail view
+- [x] Agent approve/edit/send reply flow
 
 ---
 
