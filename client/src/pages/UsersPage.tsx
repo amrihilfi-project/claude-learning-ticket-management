@@ -25,9 +25,9 @@ type UsersResponse = {
 
 const LIMIT = 10;
 
-async function fetchUsers(page: number, search: string): Promise<UsersResponse> {
+async function fetchUsers(page: number, search: string, deleted: boolean): Promise<UsersResponse> {
   const { data } = await axios.get("/api/users", {
-    params: { page, limit: LIMIT, ...(search ? { search } : {}) },
+    params: { page, limit: LIMIT, ...(search ? { search } : {}), ...(deleted ? { deleted: "true" } : {}) },
   });
   return data;
 }
@@ -41,11 +41,13 @@ export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState<UserFormState>({
     name: "",
@@ -63,9 +65,17 @@ export default function UsersPage() {
     }, 400);
   }
 
+  function toggleView() {
+    setShowDeleted((prev) => !prev);
+    setPage(1);
+    setSearch("");
+    setDebouncedSearch("");
+    setFormError(null);
+  }
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["users", page, debouncedSearch],
-    queryFn: () => fetchUsers(page, debouncedSearch),
+    queryKey: ["users", page, debouncedSearch, showDeleted],
+    queryFn: () => fetchUsers(page, debouncedSearch, showDeleted),
     placeholderData: (prev) => prev,
   });
 
@@ -98,6 +108,16 @@ export default function UsersPage() {
       else invalidate();
     },
     onError: (err: any) => setFormError(err.response?.data?.error || "Failed to delete user."),
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (id: string) => axios.patch(`/api/users/${id}/restore`),
+    onSuccess: () => {
+      setRestoreError(null);
+      if (users.length === 1 && page > 1) setPage((p) => p - 1);
+      else invalidate();
+    },
+    onError: (err: any) => setRestoreError(err.response?.data?.error || "Failed to restore user."),
   });
 
   function openCreate() {
@@ -148,7 +168,12 @@ export default function UsersPage() {
       <main className="max-w-5xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">Users</h1>
-          <Button onClick={openCreate}>Add User</Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={toggleView}>
+              {showDeleted ? "View Active" : "View Deleted"}
+            </Button>
+            {!showDeleted && <Button onClick={openCreate}>Add User</Button>}
+          </div>
         </div>
 
         <div className="mb-4">
@@ -166,6 +191,12 @@ export default function UsersPage() {
           </div>
         )}
 
+        {restoreError && (
+          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2">
+            {restoreError}
+          </div>
+        )}
+
         <UsersTable
           users={users}
           isLoading={isLoading}
@@ -176,6 +207,7 @@ export default function UsersPage() {
           limit={LIMIT}
           onEdit={openEdit}
           onDelete={(user) => { setFormError(null); setDeleteUser(user); }}
+          onRestore={showDeleted ? (user) => { setRestoreError(null); restoreMutation.mutate(user.id); } : undefined}
           onPageChange={setPage}
         />
       </main>
@@ -251,4 +283,3 @@ export default function UsersPage() {
     </div>
   );
 }
-

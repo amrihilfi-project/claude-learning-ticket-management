@@ -22,6 +22,7 @@ type Props = {
   limit: number;
   onEdit: (user: User) => void;
   onDelete: (user: User) => void;
+  onRestore?: (user: User) => void;
   onPageChange: (page: number) => void;
 };
 
@@ -35,6 +36,7 @@ export function UsersTable({
   limit,
   onEdit,
   onDelete,
+  onRestore,
   onPageChange,
 }: Props) {
   function isSelf(id: string) {
@@ -100,19 +102,27 @@ export function UsersTable({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
-                      <Button variant="outline" size="sm" onClick={() => onEdit(user)}>
-                        <Pencil size={14} />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        disabled={isSelf(user.id)}
-                        title={isSelf(user.id) ? "Cannot delete your own account" : undefined}
-                        onClick={() => onDelete(user)}
-                      >
-                        Delete
-                      </Button>
+                      {onRestore ? (
+                        <Button variant="outline" size="sm" onClick={() => onRestore(user)}>
+                          Restore
+                        </Button>
+                      ) : (
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => onEdit(user)}>
+                            <Pencil size={14} />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            disabled={isSelf(user.id)}
+                            title={isSelf(user.id) ? "Cannot delete your own account" : undefined}
+                            onClick={() => onDelete(user)}
+                          >
+                            Delete
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

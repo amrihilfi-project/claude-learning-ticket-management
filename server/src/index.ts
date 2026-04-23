@@ -69,16 +69,17 @@ app.get("/api/users", requireSession, requireRole("ADMIN"), async (req, res) => 
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
   const skip = (page - 1) * limit;
+  const isActive = req.query.deleted === "true" ? false : true;
 
   const where = search
     ? {
-        isActive: true,
+        isActive,
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },
           { email: { contains: search, mode: "insensitive" as const } },
         ],
       }
-    : { isActive: true };
+    : { isActive };
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
@@ -228,6 +229,24 @@ app.delete("/api/users/:id", requireSession, requireRole("ADMIN"), async (req, r
     data: { isActive: false, updatedAt: new Date() },
   });
   res.status(204).send();
+});
+
+app.patch("/api/users/:id/restore", requireSession, requireRole("ADMIN"), async (req, res) => {
+  const { id } = req.params;
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target || target.isActive) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const restored = await prisma.user.update({
+    where: { id },
+    data: { isActive: true, updatedAt: new Date() },
+    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+  });
+
+  res.json(restored);
 });
 
 // ─── Example admin route ──────────────────────────────────────────────────────

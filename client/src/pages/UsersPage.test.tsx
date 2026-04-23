@@ -363,4 +363,82 @@ describe("UsersPage", () => {
     });
   });
 
+  describe("Deleted users view", () => {
+    it("switches to deleted view and calls API with deleted=true", async () => {
+      ax.get.mockResolvedValue({ data: usersResponse([]) });
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: /view deleted/i }));
+
+      await waitFor(() => {
+        const calls = ax.get.mock.calls as Array<[string, { params: Record<string, unknown> }]>;
+        const hit = calls.find((c) => c[1]?.params?.deleted === "true");
+        expect(hit).toBeDefined();
+      });
+    });
+
+    it("shows Restore button and hides Edit/Delete in deleted view", async () => {
+      ax.get.mockResolvedValue({ data: usersResponse([makeUser()]) });
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: /view deleted/i }));
+      await screen.findByText("Jane Agent");
+
+      const row = screen.getByText("Jane Agent").closest("tr")!;
+      expect(within(row).getByRole("button", { name: /restore/i })).toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+    });
+
+    it("calls PATCH /api/users/:id/restore when Restore is clicked", async () => {
+      ax.get.mockResolvedValue({ data: usersResponse([makeUser()]) });
+      ax.patch.mockResolvedValue({ data: makeUser({ isActive: true }) });
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: /view deleted/i }));
+      await screen.findByText("Jane Agent");
+
+      const row = screen.getByText("Jane Agent").closest("tr")!;
+      fireEvent.click(within(row).getByRole("button", { name: /restore/i }));
+
+      await waitFor(() =>
+        expect(ax.patch).toHaveBeenCalledWith("/api/users/user-1/restore")
+      );
+    });
+
+    it("shows inline error when restore fails", async () => {
+      ax.get.mockResolvedValue({ data: usersResponse([makeUser()]) });
+      ax.patch.mockRejectedValue({ response: { data: { error: "Failed to restore user." } } });
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: /view deleted/i }));
+      await screen.findByText("Jane Agent");
+
+      const row = screen.getByText("Jane Agent").closest("tr")!;
+      fireEvent.click(within(row).getByRole("button", { name: /restore/i }));
+
+      await screen.findByText(/failed to restore user/i);
+    });
+
+    it("hides Add User button in deleted view", async () => {
+      ax.get.mockResolvedValue({ data: usersResponse([]) });
+      renderPage();
+
+      expect(screen.getByRole("button", { name: /add user/i })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /view deleted/i }));
+      expect(screen.queryByRole("button", { name: /add user/i })).not.toBeInTheDocument();
+    });
+
+    it("switches back to active view when View Active is clicked", async () => {
+      ax.get.mockResolvedValue({ data: usersResponse([]) });
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: /view deleted/i }));
+      await screen.findByRole("button", { name: /view active/i });
+
+      fireEvent.click(screen.getByRole("button", { name: /view active/i }));
+      await screen.findByRole("button", { name: /view deleted/i });
+      expect(screen.getByRole("button", { name: /add user/i })).toBeInTheDocument();
+    });
+  });
 });
