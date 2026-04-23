@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -115,6 +116,7 @@ export function UsersTable({
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
                       <Button variant="outline" size="sm" onClick={() => onEdit(user)}>
+                        <Pencil size={14} />
                         Edit
                       </Button>
                       <Button

@@ -275,6 +275,50 @@ describe("UsersPage", () => {
         expect.objectContaining({ name: "Jane Updated" })
       );
     });
+
+    it("closes when Escape is pressed", async () => {
+      renderPage();
+      await screen.findByText("Jane Agent");
+      fireEvent.click(within(screen.getByText("Jane Agent").closest("tr")!).getByRole("button", { name: /edit/i }));
+      await screen.findByRole("heading", { name: /edit user/i });
+      fireEvent.keyDown(document, { key: "Escape" });
+      await waitFor(() =>
+        expect(screen.queryByRole("heading", { name: /edit user/i })).not.toBeInTheDocument()
+      );
+    });
+
+    it("closes when clicking outside the dialog", async () => {
+      renderPage();
+      await screen.findByText("Jane Agent");
+      fireEvent.click(within(screen.getByText("Jane Agent").closest("tr")!).getByRole("button", { name: /edit/i }));
+      await screen.findByRole("heading", { name: /edit user/i });
+      fireEvent.click(document.querySelector('[data-slot="dialog-overlay"]')!);
+      await waitFor(() =>
+        expect(screen.queryByRole("heading", { name: /edit user/i })).not.toBeInTheDocument()
+      );
+    });
+
+    it("shows error when name and email are cleared", async () => {
+      renderPage();
+      await screen.findByText("Jane Agent");
+      fireEvent.click(within(screen.getByText("Jane Agent").closest("tr")!).getByRole("button", { name: /edit/i }));
+      await screen.findByRole("heading", { name: /edit user/i });
+
+      const user = userEvent.setup({ delay: null });
+      await user.clear(screen.getByDisplayValue("Jane Agent"));
+      await user.clear(screen.getByDisplayValue("jane@test.com"));
+      fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(screen.getByText(/name and email are required/i)).toBeInTheDocument();
+    });
+
+    it("disables the role select when editing yourself", async () => {
+      ax.get.mockResolvedValue({ data: usersResponse([makeUser({ id: "admin-1" })]) });
+      renderPage();
+      await screen.findByText("(you)");
+      fireEvent.click(within(screen.getByText("(you)").closest("tr")!).getByRole("button", { name: /edit/i }));
+      await screen.findByRole("heading", { name: /edit user/i });
+      expect(screen.getByRole("combobox")).toBeDisabled();
+    });
   });
 
   describe("Delete User dialog", () => {
