@@ -12,6 +12,9 @@ const testEnv = {
   BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET!,
 };
 
+/** Path where the admin session cookies are saved after the auth setup project runs. */
+export const ADMIN_STORAGE_STATE = "e2e/.auth/admin.json";
+
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
@@ -24,9 +27,17 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
+    // ── Auth setup ──────────────────────────────────────────────────────────
+    // Runs once before the main project to create a saved admin session.
+    {
+      name: "setup",
+      testMatch: "**/auth.setup.ts",
+    },
+    // ── Main test project ───────────────────────────────────────────────────
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
     },
   ],
   webServer: [
