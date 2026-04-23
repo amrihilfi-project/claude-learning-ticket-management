@@ -190,9 +190,9 @@ describe("UsersPage", () => {
       await screen.findByRole("heading", { name: /add user/i });
 
       const user = userEvent.setup({ delay: null });
-      await user.type(screen.getByLabelText(/name/i), "New User");
-      await user.type(screen.getByLabelText(/email/i), "new@test.com");
-      await user.type(screen.getByLabelText(/password/i), "password123");
+      await user.type(screen.getByLabelText(/^name$/i), "New User");
+      await user.type(screen.getByLabelText(/^email$/i), "new@test.com");
+      await user.type(screen.getByLabelText(/^password$/i), "password123");
       fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
 
       await waitFor(() =>
@@ -207,12 +207,33 @@ describe("UsersPage", () => {
       await screen.findByRole("heading", { name: /add user/i });
 
       const user = userEvent.setup({ delay: null });
-      await user.type(screen.getByLabelText(/name/i), "New User");
-      await user.type(screen.getByLabelText(/email/i), "existing@test.com");
-      await user.type(screen.getByLabelText(/password/i), "password123");
+      await user.type(screen.getByLabelText(/^name$/i), "New User");
+      await user.type(screen.getByLabelText(/^email$/i), "existing@test.com");
+      await user.type(screen.getByLabelText(/^password$/i), "password123");
       fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
 
       await screen.findByText(/email already in use/i);
+    });
+
+    it("closes when Escape is pressed", async () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: /add user/i }));
+      await screen.findByRole("heading", { name: /add user/i });
+      fireEvent.keyDown(document, { key: "Escape" });
+      await waitFor(() =>
+        expect(screen.queryByRole("heading", { name: /add user/i })).not.toBeInTheDocument()
+      );
+    });
+
+    it("closes when clicking outside the dialog", async () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: /add user/i }));
+      await screen.findByRole("heading", { name: /add user/i });
+      const overlay = document.querySelector('[data-slot="dialog-overlay"]');
+      fireEvent.click(overlay!);
+      await waitFor(() =>
+        expect(screen.queryByRole("heading", { name: /add user/i })).not.toBeInTheDocument()
+      );
     });
   });
 

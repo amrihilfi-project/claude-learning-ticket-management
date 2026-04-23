@@ -136,6 +136,7 @@ export function UserForm({
             />
             <button
               type="button"
+              aria-label={peekPassword ? "Hide password" : "Show password"}
               onClick={() => setPeekPassword((v) => !v)}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               tabIndex={-1}
