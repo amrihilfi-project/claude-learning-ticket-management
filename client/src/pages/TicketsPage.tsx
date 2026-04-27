@@ -100,6 +100,8 @@ const columns: ColumnDef<Ticket>[] = [
   },
   {
     id: "assignee",
+    accessorFn: (row) => row.assignee?.name ?? "",
+    enableSorting: true,
     header: "Assignee",
     cell: ({ row }) => (
       <span className="text-gray-600">{row.original.assignee?.name ?? "—"}</span>

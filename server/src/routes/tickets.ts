@@ -30,7 +30,13 @@ router.get("/", async (req, res) => {
   if (category) where.category = category;
 
   if (session.user.role === "AGENT") {
-    where.OR = [{ assigneeId: session.user.id }, { assigneeId: null }];
+    if (assigneeId === session.user.id) {
+      where.assigneeId = session.user.id;
+    } else if (assigneeId === "unassigned") {
+      where.assigneeId = null;
+    } else {
+      where.OR = [{ assigneeId: session.user.id }, { assigneeId: null }];
+    }
   } else {
     if (assigneeId === "unassigned") {
       where.assigneeId = null;

@@ -3,6 +3,7 @@ import axios from "axios";
 import { Link } from "react-router";
 import NavBar from "../components/NavBar";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { authClient } from "../lib/auth-client";
 
 async function fetchCount(params: Record<string, string>): Promise<number> {
   const { data } = await axios.get("/api/tickets", { params: { ...params, limit: "1" } });
@@ -10,14 +11,21 @@ async function fetchCount(params: Record<string, string>): Promise<number> {
 }
 
 export default function HomePage() {
-  const openQ = useQuery({ queryKey: ["tickets-count", "OPEN"], queryFn: () => fetchCount({ status: "OPEN" }) });
-  const pendingQ = useQuery({ queryKey: ["tickets-count", "PENDING"], queryFn: () => fetchCount({ status: "PENDING" }) });
-  const resolvedQ = useQuery({ queryKey: ["tickets-count", "RESOLVED"], queryFn: () => fetchCount({ status: "RESOLVED" }) });
-  const closedQ = useQuery({ queryKey: ["tickets-count", "CLOSED"], queryFn: () => fetchCount({ status: "CLOSED" }) });
+  const { data: session } = authClient.useSession();
+  const role = (session?.user as any)?.role as string | undefined;
+  const userId = session?.user?.id;
+  const isAgent = role === "AGENT";
+  const agentFilter = isAgent && userId ? { assigneeId: userId } : {};
+  const sessionReady = !!session;
 
-  const generalQ = useQuery({ queryKey: ["tickets-count-cat", "GENERAL_QUESTION"], queryFn: () => fetchCount({ category: "GENERAL_QUESTION" }) });
-  const technicalQ = useQuery({ queryKey: ["tickets-count-cat", "TECHNICAL_ISSUE"], queryFn: () => fetchCount({ category: "TECHNICAL_ISSUE" }) });
-  const refundQ = useQuery({ queryKey: ["tickets-count-cat", "REFUND_REQUEST"], queryFn: () => fetchCount({ category: "REFUND_REQUEST" }) });
+  const openQ = useQuery({ queryKey: ["tickets-count", "OPEN", userId ?? null], queryFn: () => fetchCount({ status: "OPEN", ...agentFilter }), enabled: sessionReady });
+  const pendingQ = useQuery({ queryKey: ["tickets-count", "PENDING", userId ?? null], queryFn: () => fetchCount({ status: "PENDING", ...agentFilter }), enabled: sessionReady });
+  const resolvedQ = useQuery({ queryKey: ["tickets-count", "RESOLVED", userId ?? null], queryFn: () => fetchCount({ status: "RESOLVED", ...agentFilter }), enabled: sessionReady });
+  const closedQ = useQuery({ queryKey: ["tickets-count", "CLOSED", userId ?? null], queryFn: () => fetchCount({ status: "CLOSED", ...agentFilter }), enabled: sessionReady });
+
+  const generalQ = useQuery({ queryKey: ["tickets-count-cat", "GENERAL_QUESTION", userId ?? null], queryFn: () => fetchCount({ category: "GENERAL_QUESTION", ...agentFilter }), enabled: sessionReady });
+  const technicalQ = useQuery({ queryKey: ["tickets-count-cat", "TECHNICAL_ISSUE", userId ?? null], queryFn: () => fetchCount({ category: "TECHNICAL_ISSUE", ...agentFilter }), enabled: sessionReady });
+  const refundQ = useQuery({ queryKey: ["tickets-count-cat", "REFUND_REQUEST", userId ?? null], queryFn: () => fetchCount({ category: "REFUND_REQUEST", ...agentFilter }), enabled: sessionReady });
 
   const statusCards = [
     { label: "Open", count: openQ.data, color: "text-blue-600" },
@@ -26,10 +34,18 @@ export default function HomePage() {
     { label: "Closed", count: closedQ.data, color: "text-gray-500" },
   ];
 
+  const totalByStatus =
+    (openQ.data ?? 0) + (pendingQ.data ?? 0) + (resolvedQ.data ?? 0) + (closedQ.data ?? 0);
+  const allStatusLoaded = [openQ, pendingQ, resolvedQ, closedQ].every((q) => q.data !== undefined);
+  const uncategorizedCount = allStatusLoaded
+    ? totalByStatus - (generalQ.data ?? 0) - (technicalQ.data ?? 0) - (refundQ.data ?? 0)
+    : undefined;
+
   const categoryCards = [
     { label: "General Question", count: generalQ.data },
     { label: "Technical Issue", count: technicalQ.data },
     { label: "Refund Request", count: refundQ.data },
+    { label: "Uncategorized", count: uncategorizedCount },
   ];
 
   return (
@@ -39,7 +55,9 @@ export default function HomePage() {
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">Welcome to Ticket Management</h1>
           <div className="flex items-center justify-between mt-2">
-            <p className="text-sm text-gray-500">Dashboard overview</p>
+            <p className="text-sm text-gray-500">
+              {isAgent ? "Your assigned tickets" : "Dashboard overview"}
+            </p>
             <Link to="/tickets" className="text-sm text-blue-600 hover:underline">
               View all tickets →
             </Link>
@@ -68,7 +86,7 @@ export default function HomePage() {
           <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
             By Category
           </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {categoryCards.map(({ label, count }) => (
               <Card key={label}>
                 <CardHeader>
