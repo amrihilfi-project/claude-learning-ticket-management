@@ -8,7 +8,7 @@
     "seed": "bun run prisma/seed.ts"
   },
   "dependencies": {
-    "@google/genai": "^1.50.1",
+    "@anthropic-ai/sdk": "^0.91.0",
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
     "better-auth": "^1.6.5",

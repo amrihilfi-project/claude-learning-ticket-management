@@ -1,9 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
+import Anthropic from "@anthropic-ai/sdk";
 
-// Initialize the Gemini client
-const apiKey = process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey: apiKey || "dummy-key-for-tests" });
-const MODEL = "gemini-2.5-flash";
+const apiKey = process.env.ANTHROPIC_API_KEY;
+const client = new Anthropic({ apiKey: apiKey || "test-key" });
+
+const MODEL = "claude-haiku-4-5";
 
 type Message = {
   body: string;
@@ -12,45 +12,36 @@ type Message = {
 
 export type TicketCategory = "GENERAL_QUESTION" | "TECHNICAL_ISSUE" | "REFUND_REQUEST";
 
-/**
- * Classifies a new ticket based on its subject and body.
- */
 export async function classifyTicket(subject: string, body: string): Promise<TicketCategory | null> {
-  if (!apiKey || apiKey.includes("test-key") || apiKey.includes("your-gemini-api-key")) return "GENERAL_QUESTION"; // Mock for tests
+  if (!apiKey || apiKey.includes("test-key")) return "GENERAL_QUESTION";
 
   try {
-    const prompt = `Subject: ${subject}\n\nBody: ${body}`;
-    const response = await ai.models.generateContent({
+    const response = await client.messages.create({
       model: MODEL,
-      contents: prompt,
-      config: {
-        systemInstruction: `You are an expert customer support classifier. 
+      max_tokens: 20,
+      system: `You are an expert customer support classifier.
 Classify the given support ticket into exactly one of the following categories:
 - GENERAL_QUESTION: For questions about the product, pricing, how-tos, or general inquiries.
 - TECHNICAL_ISSUE: For bugs, errors, login problems, or unexpected system behavior.
 - REFUND_REQUEST: For users explicitly asking for their money back, canceling for a refund, etc.
 
 You must reply with ONLY the category name. No other text.`,
-        temperature: 0.1,
-      },
+      messages: [{ role: "user", content: `Subject: ${subject}\n\nBody: ${body}` }],
     });
 
-    const result = response.text?.trim();
+    const result = (response.content[0] as { type: string; text: string }).text.trim();
     if (result === "GENERAL_QUESTION" || result === "TECHNICAL_ISSUE" || result === "REFUND_REQUEST") {
       return result;
     }
-    return "GENERAL_QUESTION"; // Fallback
+    return "GENERAL_QUESTION";
   } catch (error) {
     console.error("AI Classification Error:", error);
     return null;
   }
 }
 
-/**
- * Summarizes the ticket context based on the subject, initial body, and thread history.
- */
 export async function summarizeTicket(subject: string, body: string, messages: Message[] = []): Promise<string | null> {
-  if (!apiKey || apiKey.includes("test-key") || apiKey.includes("your-gemini-api-key")) return "This is a mocked summary for testing purposes."; // Mock for tests
+  if (!apiKey || apiKey.includes("test-key")) return "This is a mocked summary for testing purposes.";
 
   try {
     let thread = `Original Ticket:\nSubject: ${subject}\nBody: ${body}\n\n`;
@@ -62,36 +53,36 @@ export async function summarizeTicket(subject: string, body: string, messages: M
       });
     }
 
-    const response = await ai.models.generateContent({
+    const response = await client.messages.create({
       model: MODEL,
-      contents: thread,
-      config: {
-        systemInstruction: `You are a helpful customer support assistant. 
+      max_tokens: 256,
+      system: `You are a helpful customer support assistant.
 Read the support ticket and any conversation history.
 Write a concise, 2-3 sentence summary of the current state of the issue.
 Focus on what the user needs and what has been done so far.
 Do not use conversational filler, just provide the summary.`,
-        temperature: 0.3,
-      },
+      messages: [{ role: "user", content: thread }],
     });
 
-    return response.text?.trim() || null;
+    return (response.content[0] as { type: string; text: string }).text.trim() || null;
   } catch (error) {
     console.error("AI Summarization Error:", error);
     return null;
   }
 }
 
-/**
- * Suggests a draft reply for the agent to send to the student.
- */
 export async function suggestReply(
   subject: string,
   body: string,
   messages: Message[] = [],
-  category?: TicketCategory | null
+  category?: TicketCategory | null,
+  draft?: string
 ): Promise<string | null> {
-  if (!apiKey || apiKey.includes("test-key") || apiKey.includes("your-gemini-api-key")) return "This is a mocked suggested reply for testing purposes."; // Mock for tests
+  if (!apiKey || apiKey.includes("test-key")) {
+    return draft
+      ? "This is a mocked enhanced reply for testing purposes."
+      : "This is a mocked suggested reply for testing purposes.";
+  }
 
   try {
     let thread = `Category: ${category || "Uncategorized"}\n\nOriginal Ticket:\nSubject: ${subject}\nBody: ${body}\n\n`;
@@ -102,23 +93,34 @@ export async function suggestReply(
         thread += `${idx + 1}. [${sender}]: ${msg.body}\n`;
       });
     }
+    if (draft) {
+      thread += `\nAgent's draft reply:\n${draft}`;
+    }
 
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: thread,
-      config: {
-        systemInstruction: `You are a professional customer support agent.
+    const system = draft
+      ? `You are a professional customer support agent.
+The agent has started drafting a reply. Improve and polish it while addressing the student's issue.
+Keep the agent's intent but make it clearer, more professional, and more helpful.
+- If it's a REFUND_REQUEST, be empathetic and state that the refund team is reviewing it.
+- If it's a TECHNICAL_ISSUE, suggest common troubleshooting steps or mention that the tech team is looking into it.
+- If it's a GENERAL_QUESTION, answer to the best of your ability in a helpful manner.
+Do not include subject lines or placeholder brackets like [Your Name]. Just write the body of the message.`
+      : `You are a professional customer support agent.
 Draft a helpful, friendly, and concise reply to the student.
 Use the conversation history and category to contextually inform your reply.
 - If it's a REFUND_REQUEST, be empathetic and state that the refund team is reviewing it.
 - If it's a TECHNICAL_ISSUE, suggest common troubleshooting steps or mention that the tech team is looking into it.
 - If it's a GENERAL_QUESTION, answer to the best of your ability in a helpful manner.
-Do not include subject lines or placeholder brackets like [Your Name]. Just write the body of the message.`,
-        temperature: 0.7,
-      },
+Do not include subject lines or placeholder brackets like [Your Name]. Just write the body of the message.`;
+
+    const response = await client.messages.create({
+      model: MODEL,
+      max_tokens: 512,
+      system,
+      messages: [{ role: "user", content: thread }],
     });
 
-    return response.text?.trim() || null;
+    return (response.content[0] as { type: string; text: string }).text.trim() || null;
   } catch (error) {
     console.error("AI Reply Suggestion Error:", error);
     return null;

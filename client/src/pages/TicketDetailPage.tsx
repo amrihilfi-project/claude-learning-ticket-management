@@ -83,6 +83,16 @@ export default function TicketDetailPage() {
     },
   });
 
+  const enhanceReply = useMutation({
+    mutationFn: async (draft: string) => {
+      const { data } = await axios.post(`/api/tickets/${id}/ai-enhance-reply`, { draft });
+      return data as { enhancedReply: string };
+    },
+    onSuccess: (data) => {
+      setReplyBody(data.enhancedReply);
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -197,8 +207,6 @@ export default function TicketDetailPage() {
           </div>
         </div>
 
-        <AiAssistantPanel ticket={ticket} onUseReply={(text) => setReplyBody(text)} />
-
         <div className="space-y-3 mb-6">
           {ticket.messages.map((msg) => (
             <div
@@ -222,6 +230,8 @@ export default function TicketDetailPage() {
           ))}
         </div>
 
+        <AiAssistantPanel ticket={ticket} />
+
         <div className="bg-white rounded-xl ring-1 ring-gray-200 p-4">
           <h2 className="text-sm font-medium text-gray-700 mb-3">Reply</h2>
           <textarea
@@ -232,7 +242,15 @@ export default function TicketDetailPage() {
             rows={4}
             className="w-full text-sm border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          <div className="flex justify-end mt-3">
+          <div className="flex items-center justify-between mt-3">
+            <Button
+              variant="outline"
+              onClick={() => enhanceReply.mutate(replyBody)}
+              disabled={enhanceReply.isPending}
+              className="text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+            >
+              {enhanceReply.isPending ? "Enhancing..." : "✨ Enhance Reply"}
+            </Button>
             <Button
               onClick={() => {
                 if (replyBody.trim()) addReply.mutate(replyBody.trim());

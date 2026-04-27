@@ -10,6 +10,8 @@ const testEnv = {
   TRUSTED_ORIGINS: process.env.TRUSTED_ORIGINS!,
   BETTER_AUTH_URL: process.env.BETTER_AUTH_URL!,
   BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET!,
+  // Pass the test key so the server uses AI mocks instead of the real Anthropic API
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY!,
 };
 
 /** Path where the admin session cookies are saved after the auth setup project runs. */

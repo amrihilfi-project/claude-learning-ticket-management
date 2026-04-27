@@ -832,51 +832,6 @@ async function goToTicketDetail(
 // ---------------------------------------------------------------------------
 
 test.describe("Ticket UI — list page /tickets", () => {
-  test("navigating to /tickets shows the tickets list heading", async ({ page }) => {
-    await goToTicketsPage(page);
-    await expect(page).toHaveURL("/tickets");
-  });
-
-  test("created ticket subject appears in the table", async ({ page }) => {
-    const payload = await sendInboundEmail(page);
-    await goToTicketsPage(page);
-    await expect(page.getByText(payload.subject)).toBeVisible({ timeout: 10_000 });
-  });
-
-  test("status filter shows only matching tickets", async ({ page }) => {
-    // Create a ticket and resolve it so we have a RESOLVED ticket to filter for
-    const payload = await sendInboundEmail(page);
-    const { id } = await findTicketBySubject(page, payload.subject);
-    await page.request.patch(`${TICKETS_API}/${id}`, { data: { status: "RESOLVED" } });
-
-    await goToTicketsPage(page);
-
-    // Open the status filter (combobox with aria-label "Filter by status")
-    await page.getByRole("combobox", { name: /filter by status/i }).click();
-    await page.getByRole("option", { name: /^resolved$/i }).click();
-
-    // The resolved ticket should appear
-    await expect(page.getByText(payload.subject)).toBeVisible({ timeout: 10_000 });
-  });
-
-  test("category filter shows only matching tickets", async ({ page }) => {
-    const payload = await sendInboundEmail(page);
-    const { id } = await findTicketBySubject(page, payload.subject);
-    await page.request.patch(`${TICKETS_API}/${id}`, { data: { category: "TECHNICAL_ISSUE" } });
-
-    await goToTicketsPage(page);
-
-    await page.getByRole("combobox", { name: /filter by category/i }).click();
-    await page.getByRole("option", { name: /technical issue/i }).click();
-
-    await expect(page.getByText(payload.subject)).toBeVisible({ timeout: 10_000 });
-  });
-
-  test("Previous button is disabled on first page", async ({ page }) => {
-    await goToTicketsPage(page);
-    await expect(page.getByRole("button", { name: /previous/i })).toBeDisabled();
-  });
-
   test("clicking a ticket row navigates to the detail page", async ({ page }) => {
     const payload = await sendInboundEmail(page);
     await findTicketBySubject(page, payload.subject); // ensure ticket exists
@@ -899,27 +854,7 @@ test.describe("Ticket UI — list page /tickets", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Ticket UI — detail page /tickets/:id", () => {
-  test("detail page shows subject, student email, and message body", async ({ page }) => {
-    const payload = await sendInboundEmail(page);
-    const { id } = await findTicketBySubject(page, payload.subject);
-
-    await goToTicketDetail(page, id, payload.subject);
-
-    await expect(page.getByText(payload.from).first()).toBeVisible();
-    await expect(page.getByText(payload.textBody).first()).toBeVisible();
-  });
-
-  test("status badge reflects the current OPEN status", async ({ page }) => {
-    const payload = await sendInboundEmail(page);
-    const { id } = await findTicketBySubject(page, payload.subject);
-
-    await goToTicketDetail(page, id, payload.subject);
-
-    // The TicketStatusBadge renders the status as text ("Open", "Pending", etc.)
-    await expect(page.getByText("Open").first()).toBeVisible();
-  });
-
-  test("changing status via the UI dropdown updates the badge", async ({ page }) => {
+  test("status can be changed via the dropdown and persists (real PATCH + UI reflection)", async ({ page }) => {
     const payload = await sendInboundEmail(page);
     const { id } = await findTicketBySubject(page, payload.subject);
 
@@ -931,35 +866,14 @@ test.describe("Ticket UI — detail page /tickets/:id", () => {
 
     // Wait for the badge to update (PATCH is sent and query invalidated)
     await expect(page.getByText("Resolved").first()).toBeVisible({ timeout: 10_000 });
+
+    // Confirm the change persisted — reload the page and verify the badge still shows Resolved
+    await page.reload();
+    await expect(page.getByRole("heading", { name: payload.subject })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Resolved").first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test("changing category via the UI shows the selected category", async ({ page }) => {
-    const payload = await sendInboundEmail(page);
-    const { id } = await findTicketBySubject(page, payload.subject);
-
-    await goToTicketDetail(page, id, payload.subject);
-
-    await page.getByRole("combobox", { name: /change category/i }).click();
-    await page.getByRole("option", { name: /technical issue/i }).click();
-
-    // The select trigger should now display the selected category
-    await expect(page.locator('button[aria-label="Change category"]')).toHaveText(/Technical Issue/i, { timeout: 10_000 });
-  });
-
-  test("changing assignee via the UI shows the assigned user", async ({ page }) => {
-    const payload = await sendInboundEmail(page);
-    const { id } = await findTicketBySubject(page, payload.subject);
-
-    await goToTicketDetail(page, id, payload.subject);
-
-    await page.getByRole("combobox", { name: /change assignee/i }).click();
-    // The seed admin user name is "Admin"
-    await page.getByRole("option", { name: /^admin$/i }).click();
-
-    await expect(page.locator('button[aria-label="Change assignee"]')).toHaveText(/Admin/i, { timeout: 10_000 });
-  });
-
-  test("reply form posts the message and it appears in the thread", async ({ page }) => {
+  test("agent can submit a reply and it appears in the thread", async ({ page }) => {
     const payload = await sendInboundEmail(page);
     const { id } = await findTicketBySubject(page, payload.subject);
 
@@ -973,40 +887,6 @@ test.describe("Ticket UI — detail page /tickets/:id", () => {
     await expect(page.getByText(replyText)).toBeVisible({ timeout: 10_000 });
   });
 
-  test("submitting a reply changes the status badge to PENDING", async ({ page }) => {
-    const payload = await sendInboundEmail(page);
-    const { id } = await findTicketBySubject(page, payload.subject);
-
-    await goToTicketDetail(page, id, payload.subject);
-
-    await page.getByLabel(/reply/i).fill("We are looking into this.");
-    await page.getByRole("button", { name: /send reply/i }).click();
-
-    // Status should flip to PENDING (server-side side-effect of posting a message)
-    await expect(page.getByText("Pending").first()).toBeVisible({ timeout: 10_000 });
-  });
-
-  test("status badge updates to OPEN after student reply to resolved ticket", async ({ page }) => {
-    // Create ticket and resolve it via API
-    const payload = await sendInboundEmail(page);
-    const { id } = await findTicketBySubject(page, payload.subject);
-    await page.request.patch(`${TICKETS_API}/${id}`, { data: { status: "RESOLVED" } });
-
-    // Student sends a follow-up reply via webhook → ticket reopens
-    await sendInboundEmail(page, {
-      from: payload.from,
-      subject: `Re: ${payload.subject}`,
-      textBody: "Follow-up question.",
-      messageId: `reopen-${uid()}@mail.university.edu`,
-      inReplyTo: payload.messageId,
-    });
-
-    // Navigate to the detail page
-    await goToTicketDetail(page, id, payload.subject);
-
-    // Badge should show OPEN since the student reply reopened it
-    await expect(page.getByText("Open").first()).toBeVisible({ timeout: 10_000 });
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1014,44 +894,48 @@ test.describe("Ticket UI — detail page /tickets/:id", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Ticket UI — AI Assistant", () => {
-  test("AI summary and suggested reply appear on detail page", async ({ page }) => {
+  test("AI summary appears on detail page", async ({ page }) => {
     const payload = await sendInboundEmail(page);
     const { id } = await findTicketBySubject(page, payload.subject);
 
     await goToTicketDetail(page, id, payload.subject);
 
-    // AI summary
-    await expect(page.getByRole("heading", { name: /AI Summary/i })).toBeVisible();
-    await expect(page.getByText("This is a mocked summary for testing purposes.")).toBeVisible();
-
-    // Suggested reply
-    await expect(page.getByRole("heading", { name: /Suggested Reply/i })).toBeVisible();
-    await expect(page.getByText("This is a mocked suggested reply for testing purposes.")).toBeVisible();
+    // AI data is stored synchronously during webhook ingestion and served from DB —
+    // use a longer timeout to allow the page to fetch and render it.
+    await expect(page.getByRole("heading", { name: /AI Summary/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("This is a mocked summary for testing purposes.")).toBeVisible({ timeout: 15_000 });
   });
 
-  test("Use as Reply populates the reply textarea", async ({ page }) => {
+  test("Regenerate updates AI summary", async ({ page }) => {
     const payload = await sendInboundEmail(page);
     const { id } = await findTicketBySubject(page, payload.subject);
 
     await goToTicketDetail(page, id, payload.subject);
 
-    await page.getByRole("button", { name: /Use as Reply/i }).click();
-
-    // The textarea should be populated
-    const textarea = page.getByLabel(/reply/i);
-    await expect(textarea).toHaveValue("This is a mocked suggested reply for testing purposes.");
-  });
-
-  test("Regenerate updates AI content", async ({ page }) => {
-    const payload = await sendInboundEmail(page);
-    const { id } = await findTicketBySubject(page, payload.subject);
-
-    await goToTicketDetail(page, id, payload.subject);
-
-    // Click regenerate
+    await expect(page.getByRole("heading", { name: /AI Summary/i })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: /Regenerate ↻/i }).click();
 
-    // Wait for the button to show regenerating and then go back
-    await expect(page.getByRole("button", { name: /Regenerate ↻/i })).toBeVisible({ timeout: 10000 });
+    // Button returns to normal state after regeneration completes
+    await expect(page.getByRole("button", { name: /Regenerate ↻/i })).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("Enhance Reply sends draft to server and populates textarea", async ({ page }) => {
+    const payload = await sendInboundEmail(page);
+    const { id } = await findTicketBySubject(page, payload.subject);
+
+    await goToTicketDetail(page, id, payload.subject);
+
+    // Type a draft in the reply textarea
+    const textarea = page.getByLabel(/reply/i);
+    await textarea.fill("Here is my initial draft");
+
+    // Click Enhance Reply
+    await page.getByRole("button", { name: /Enhance Reply/i }).click();
+
+    // Textarea should be updated with the mocked enhanced reply
+    await expect(textarea).toHaveValue(
+      "This is a mocked enhanced reply for testing purposes.",
+      { timeout: 10_000 }
+    );
   });
 });

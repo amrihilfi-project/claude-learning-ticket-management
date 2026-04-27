@@ -187,4 +187,33 @@ router.post("/:id/ai-suggest", async (req, res) => {
   }
 });
 
+// ─── AI Enhance Reply (transient — does not write to DB) ──────────────────────
+
+router.post("/:id/ai-enhance-reply", async (req, res) => {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: req.params.id },
+    include: { messages: { orderBy: { createdAt: "asc" } } },
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const draft: string | undefined = typeof req.body?.draft === "string" ? req.body.draft : undefined;
+  const msgs = ticket.messages.map(m => ({ body: m.body, fromStudent: m.fromStudent }));
+
+  try {
+    const enhancedReply = await suggestReply(ticket.subject, ticket.body, msgs, ticket.category, draft);
+    if (!enhancedReply) {
+      res.status(500).json({ error: "Failed to enhance reply" });
+      return;
+    }
+    res.json({ enhancedReply });
+  } catch (err) {
+    console.error("AI Enhance Reply Error:", err);
+    res.status(500).json({ error: "Failed to enhance reply" });
+  }
+});
+
 export default router;

@@ -265,44 +265,67 @@ describe("TicketDetailPage", () => {
     it("renders AI summary when present", async () => {
       setupMocks();
       renderDetailPage();
-      expect(await screen.findByText("AI Summary")).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: /AI Summary/i })).toBeInTheDocument();
       expect(await screen.findByText("This is an AI summary.")).toBeInTheDocument();
     });
 
-    it("renders suggested reply when present", async () => {
-      setupMocks();
-      renderDetailPage();
-      expect(await screen.findByText("Suggested Reply")).toBeInTheDocument();
-      expect(await screen.findByText("This is a suggested reply.")).toBeInTheDocument();
-    });
-
-    it("shows placeholder when AI fields are null", async () => {
-      setupMocks(makeTicket({ summary: null, suggestedReply: null }));
+    it("shows placeholder when summary is null", async () => {
+      setupMocks(makeTicket({ summary: null }));
       renderDetailPage();
       expect(await screen.findByText("No AI summary available.")).toBeInTheDocument();
-      expect(await screen.findByText("No AI suggestion available.")).toBeInTheDocument();
-    });
-
-    it("Use as Reply populates the reply textarea", async () => {
-      setupMocks();
-      renderDetailPage();
-      const useBtn = await screen.findByRole("button", { name: /Use as Reply/i });
-      fireEvent.click(useBtn);
-      
-      const textarea = await screen.findByLabelText(/reply/i) as HTMLTextAreaElement;
-      expect(textarea.value).toBe("This is a suggested reply.");
     });
 
     it("Regenerate calls POST /api/tickets/:id/ai-suggest", async () => {
       setupMocks();
       ax.post.mockResolvedValue({ data: makeTicket({ summary: "New summary" }) });
       renderDetailPage();
-      
+
       const regenBtn = await screen.findByRole("button", { name: /Regenerate ↻/i });
       fireEvent.click(regenBtn);
-      
+
       await waitFor(() => {
         expect(ax.post).toHaveBeenCalledWith("/api/tickets/ticket-abc/ai-suggest");
+      });
+    });
+  });
+
+  describe("Enhance Reply", () => {
+    it("renders the Enhance Reply button", async () => {
+      setupMocks();
+      renderDetailPage();
+      expect(await screen.findByRole("button", { name: /enhance reply/i })).toBeInTheDocument();
+    });
+
+    it("calls POST /api/tickets/:id/ai-enhance-reply with current draft", async () => {
+      setupMocks();
+      ax.post.mockResolvedValue({ data: { enhancedReply: "This is a mocked enhanced reply for testing purposes." } });
+      renderDetailPage();
+
+      const textarea = await screen.findByLabelText(/reply/i);
+      const user = userEvent.setup({ delay: null });
+      await user.type(textarea, "my draft");
+
+      fireEvent.click(screen.getByRole("button", { name: /enhance reply/i }));
+
+      await waitFor(() => {
+        expect(ax.post).toHaveBeenCalledWith(
+          "/api/tickets/ticket-abc/ai-enhance-reply",
+          { draft: "my draft" }
+        );
+      });
+    });
+
+    it("populates textarea with enhancedReply on success", async () => {
+      setupMocks();
+      ax.post.mockResolvedValue({ data: { enhancedReply: "This is a mocked enhanced reply for testing purposes." } });
+      renderDetailPage();
+
+      await screen.findByRole("button", { name: /enhance reply/i });
+      fireEvent.click(screen.getByRole("button", { name: /enhance reply/i }));
+
+      const textarea = await screen.findByLabelText(/reply/i) as HTMLTextAreaElement;
+      await waitFor(() => {
+        expect(textarea.value).toBe("This is a mocked enhanced reply for testing purposes.");
       });
     });
   });
