@@ -5,7 +5,6 @@ import axios from "axios";
 import NavBar from "../components/NavBar";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
-import { TicketStatusBadge } from "../components/TicketStatusBadge";
 import {
   Select,
   SelectContent,
@@ -14,6 +13,24 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { AiAssistantPanel } from "../components/AiAssistantPanel";
+
+const statusStyles: Record<string, { dot: string; label: string; color: string }> = {
+  OPEN:     { dot: "bg-blue-500",  label: "Open",     color: "text-blue-700"  },
+  PENDING:  { dot: "bg-amber-500", label: "Pending",   color: "text-amber-700" },
+  RESOLVED: { dot: "bg-green-500", label: "Resolved",  color: "text-green-700" },
+  CLOSED:   { dot: "bg-gray-400",  label: "Closed",    color: "text-gray-500"  },
+};
+
+const categoryLabels: Record<string, string> = {
+  __none__:         "No Category",
+  GENERAL_QUESTION: "General Question",
+  TECHNICAL_ISSUE:  "Technical Issue",
+  REFUND_REQUEST:   "Refund Request",
+};
+
+function initials(name: string) {
+  return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
 
 type TicketMessage = {
   id: string;
@@ -144,7 +161,12 @@ export default function TicketDetailPage() {
             >
               <SelectTrigger className="w-36" aria-label="Change status">
                 <SelectValue>
-                  {{ OPEN: "Open", PENDING: "Pending", RESOLVED: "Resolved", CLOSED: "Closed" }[ticket.status] || ticket.status}
+                  <span className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${statusStyles[ticket.status]?.dot ?? "bg-gray-400"}`} />
+                    <span className={`font-medium ${statusStyles[ticket.status]?.color ?? "text-gray-700"}`}>
+                      {statusStyles[ticket.status]?.label ?? ticket.status}
+                    </span>
+                  </span>
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -166,7 +188,9 @@ export default function TicketDetailPage() {
             >
               <SelectTrigger className="w-48" aria-label="Change category">
                 <SelectValue>
-                  {{ __none__: "No Category", GENERAL_QUESTION: "General Question", TECHNICAL_ISSUE: "Technical Issue", REFUND_REQUEST: "Refund Request" }[ticket.category ?? "__none__"] || "No Category"}
+                  <span className="font-medium text-gray-800">
+                    {categoryLabels[ticket.category ?? "__none__"] ?? "No Category"}
+                  </span>
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -188,7 +212,16 @@ export default function TicketDetailPage() {
             >
               <SelectTrigger className="w-44" aria-label="Change assignee">
                 <SelectValue>
-                  {ticket.assignee?.name ?? "Unassigned"}
+                  {ticket.assignee ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold flex items-center justify-center shrink-0">
+                        {initials(ticket.assignee.name)}
+                      </span>
+                      <span className="font-medium text-gray-800">{ticket.assignee.name}</span>
+                    </span>
+                  ) : (
+                    <span className="italic text-gray-400">Unassigned</span>
+                  )}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -200,10 +233,6 @@ export default function TicketDetailPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="ml-auto">
-            <TicketStatusBadge status={ticket.status} />
           </div>
         </div>
 
