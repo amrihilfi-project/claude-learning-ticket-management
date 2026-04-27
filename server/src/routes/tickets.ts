@@ -1,8 +1,7 @@
 import { Router } from "express";
-import { updateTicketSchema, createMessageSchema } from "core";
+import { updateTicketSchema } from "core";
 import { requireSession } from "../middleware/session";
 import prisma from "../lib/prisma";
-import { summarizeTicket, suggestReply } from "../lib/ai";
 
 const router = Router();
 
@@ -10,10 +9,11 @@ router.use(requireSession);
 
 // ─── List tickets ─────────────────────────────────────────────────────────────
 
-const TICKET_SORT_FIELDS = ["subject", "studentEmail", "status", "category", "createdAt"] as const;
+const TICKET_SORT_FIELDS = ["subject", "studentEmail", "status", "category", "createdAt", "assignee"] as const;
 type TicketSortField = (typeof TICKET_SORT_FIELDS)[number];
 
 router.get("/", async (req, res) => {
+  const session = res.locals.session;
   const { status, category, assigneeId } = req.query;
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
@@ -28,10 +28,15 @@ router.get("/", async (req, res) => {
   const where: Record<string, unknown> = {};
   if (status) where.status = status;
   if (category) where.category = category;
-  if (assigneeId === "unassigned") {
-    where.assigneeId = null;
-  } else if (assigneeId) {
-    where.assigneeId = assigneeId;
+
+  if (session.user.role === "AGENT") {
+    where.OR = [{ assigneeId: session.user.id }, { assigneeId: null }];
+  } else {
+    if (assigneeId === "unassigned") {
+      where.assigneeId = null;
+    } else if (assigneeId) {
+      where.assigneeId = assigneeId;
+    }
   }
 
   const [tickets, total] = await Promise.all([
@@ -48,7 +53,12 @@ router.get("/", async (req, res) => {
         createdAt: true,
         updatedAt: true,
       },
-      orderBy: [{ [sortBy]: sortOrder }, { id: "desc" }],
+      orderBy: [
+        sortBy === "assignee"
+          ? { assignee: { name: sortOrder } }
+          : { [sortBy]: sortOrder },
+        { id: "desc" },
+      ],
       skip,
       take: limit,
     }),
@@ -126,103 +136,5 @@ router.patch("/:id", async (req, res) => {
   res.json(updated);
 });
 
-// ─── Add agent reply ──────────────────────────────────────────────────────────
-
-router.post("/:id/messages", async (req, res) => {
-  const parsed = createMessageSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0].message });
-    return;
-  }
-
-  const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } });
-  if (!ticket) {
-    res.status(404).json({ error: "Ticket not found" });
-    return;
-  }
-
-  const [message] = await prisma.$transaction([
-    prisma.ticketMessage.create({
-      data: {
-        ticketId: ticket.id,
-        body: parsed.data.body,
-        fromStudent: false,
-      },
-    }),
-    prisma.ticket.update({
-      where: { id: ticket.id },
-      data: { status: "PENDING", updatedAt: new Date() },
-    }),
-  ]);
-
-  res.status(201).json(message);
-});
-
-// ─── AI Regeneration ──────────────────────────────────────────────────────────
-
-router.post("/:id/ai-suggest", async (req, res) => {
-  const ticket = await prisma.ticket.findUnique({
-    where: { id: req.params.id },
-    include: {
-      messages: { orderBy: { createdAt: "asc" } },
-      assignee: { select: { id: true, name: true } },
-    },
-  });
-
-  if (!ticket) {
-    res.status(404).json({ error: "Ticket not found" });
-    return;
-  }
-
-  const msgs = ticket.messages.map(m => ({ body: m.body, fromStudent: m.fromStudent }));
-  
-  try {
-    const summary = await summarizeTicket(ticket.subject, ticket.body, msgs);
-    const suggestedReply = await suggestReply(ticket.subject, ticket.body, msgs, ticket.category);
-
-    const updated = await prisma.ticket.update({
-      where: { id: ticket.id },
-      data: { summary, suggestedReply },
-      include: {
-        assignee: { select: { id: true, name: true } },
-        messages: { orderBy: { createdAt: "asc" } },
-      },
-    });
-
-    res.json(updated);
-  } catch (err) {
-    console.error("AI Regeneration Error:", err);
-    res.status(500).json({ error: "Failed to regenerate AI content" });
-  }
-});
-
-// ─── AI Enhance Reply (transient — does not write to DB) ──────────────────────
-
-router.post("/:id/ai-enhance-reply", async (req, res) => {
-  const ticket = await prisma.ticket.findUnique({
-    where: { id: req.params.id },
-    include: { messages: { orderBy: { createdAt: "asc" } } },
-  });
-
-  if (!ticket) {
-    res.status(404).json({ error: "Ticket not found" });
-    return;
-  }
-
-  const draft: string | undefined = typeof req.body?.draft === "string" ? req.body.draft : undefined;
-  const msgs = ticket.messages.map(m => ({ body: m.body, fromStudent: m.fromStudent }));
-
-  try {
-    const enhancedReply = await suggestReply(ticket.subject, ticket.body, msgs, ticket.category, draft);
-    if (!enhancedReply) {
-      res.status(500).json({ error: "Failed to enhance reply" });
-      return;
-    }
-    res.json({ enhancedReply });
-  } catch (err) {
-    console.error("AI Enhance Reply Error:", err);
-    res.status(500).json({ error: "Failed to enhance reply" });
-  }
-});
 
 export default router;

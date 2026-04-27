@@ -12,6 +12,7 @@ import { requireSession } from "./middleware/session";
 import { requireRole } from "./middleware/requireRole";
 import webhooksRouter from "./routes/webhooks";
 import ticketsRouter from "./routes/tickets";
+import repliesRouter from "./routes/replies";
 import { startAutoClosePoller } from "./lib/auto-close";
 
 const app = express();
@@ -268,6 +269,7 @@ app.use("/api/webhooks", webhooksRouter);
 // ─── Tickets ──────────────────────────────────────────────────────────────────
 
 app.use("/api/tickets", ticketsRouter);
+app.use("/api/tickets/:id", repliesRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

@@ -22,7 +22,8 @@ model User {
   deletedAt     DateTime?
   sessions      Session[]
   accounts      Account[]
-  tickets       Ticket[]  @relation("AssignedTickets")
+  tickets       Ticket[]         @relation("AssignedTickets")
+  messages      TicketMessage[]
 
   @@map("user")
 }
@@ -115,10 +116,13 @@ model TicketMessage {
   id             String   @id @default(cuid())
   ticketId       String
   ticket         Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId       String?
+  author         User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
   body           String
   fromStudent    Boolean
   emailMessageId String?
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@map("ticket_message")
 }

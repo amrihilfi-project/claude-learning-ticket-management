@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import NavBar from "../components/NavBar";
+import { authClient } from "../lib/auth-client";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import {
@@ -36,6 +37,7 @@ type TicketMessage = {
   id: string;
   body: string;
   fromStudent: boolean;
+  authorId: string | null;
   createdAt: string;
 };
 
@@ -73,6 +75,10 @@ export default function TicketDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [replyBody, setReplyBody] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState("");
+  const { data: session } = authClient.useSession();
+  const currentUserId = (session?.user as any)?.id;
 
   const { data: ticket, isLoading, isError } = useQuery({
     queryKey: ["ticket", id],
@@ -107,6 +113,21 @@ export default function TicketDetailPage() {
     },
     onSuccess: (data) => {
       setReplyBody(data.enhancedReply);
+    },
+  });
+
+  const deleteReply = useMutation({
+    mutationFn: (messageId: string) =>
+      axios.delete(`/api/tickets/${id}/messages/${messageId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ticket", id] }),
+  });
+
+  const editReply = useMutation({
+    mutationFn: ({ messageId, body }: { messageId: string; body: string }) =>
+      axios.patch(`/api/tickets/${id}/messages/${messageId}`, { body }),
+    onSuccess: () => {
+      setEditingId(null);
+      qc.invalidateQueries({ queryKey: ["ticket", id] });
     },
   });
 
@@ -169,11 +190,59 @@ export default function TicketDetailPage() {
                     <span className="text-xs font-medium text-gray-600">
                       {msg.fromStudent ? ticket.studentEmail : "Agent"}
                     </span>
-                    <span className="text-xs text-gray-400">
-                      {new Date(msg.createdAt).toLocaleString()}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">
+                        {new Date(msg.createdAt).toLocaleString()}
+                      </span>
+                      {!msg.fromStudent && msg.authorId === currentUserId && editingId !== msg.id && (
+                        <>
+                          <button
+                            onClick={() => { setEditingId(msg.id); setEditBody(msg.body); }}
+                            className="text-gray-400 hover:text-blue-500 transition-colors text-xs"
+                            aria-label="Edit reply"
+                          >
+                            ✎
+                          </button>
+                          <button
+                            onClick={() => deleteReply.mutate(msg.id)}
+                            disabled={deleteReply.isPending}
+                            className="text-gray-400 hover:text-red-500 transition-colors leading-none"
+                            aria-label="Delete reply"
+                          >
+                            ×
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{msg.body}</p>
+                  {editingId === msg.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        className="w-full text-sm border border-gray-300 rounded-md p-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        rows={3}
+                        value={editBody}
+                        onChange={(e) => setEditBody(e.target.value)}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => editReply.mutate({ messageId: msg.id, body: editBody.trim() })}
+                          disabled={!editBody.trim() || editReply.isPending}
+                        >
+                          {editReply.isPending ? "Saving..." : "Save"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{msg.body}</p>
+                  )}
                 </div>
               ))}
             </div>

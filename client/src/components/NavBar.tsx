@@ -1,13 +1,11 @@
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { authClient } from "../lib/auth-client";
 
 export default function NavBar() {
-  const navigate = useNavigate();
   const { data: session } = authClient.useSession();
 
   async function handleSignOut() {
     await authClient.signOut();
-    navigate("/login");
   }
 
   return (

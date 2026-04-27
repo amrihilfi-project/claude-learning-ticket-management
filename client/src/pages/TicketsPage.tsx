@@ -101,7 +101,6 @@ const columns: ColumnDef<Ticket>[] = [
   {
     id: "assignee",
     header: "Assignee",
-    enableSorting: false,
     cell: ({ row }) => (
       <span className="text-gray-600">{row.original.assignee?.name ?? "—"}</span>
     ),

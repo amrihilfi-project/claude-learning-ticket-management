@@ -24,3 +24,7 @@ export const updateTicketSchema = z
 export const createMessageSchema = z.object({
   body: z.string().min(1, "Message body is required"),
 });
+
+export const updateMessageSchema = z.object({
+  body: z.string().min(1, "Message body is required"),
+});
