@@ -51,12 +51,21 @@ app.get("/api/me", requireSession, (_req, res) => {
 
 // ─── User management (Admin only) ────────────────────────────────────────────
 
+const USER_SORT_FIELDS = ["name", "email", "role", "createdAt"] as const;
+type UserSortField = (typeof USER_SORT_FIELDS)[number];
+
 app.get("/api/users", requireSession, requireRole("ADMIN"), async (req, res) => {
   const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
   const skip = (page - 1) * limit;
   const showDeleted = req.query.deleted === "true";
+
+  const sortByParam = req.query.sortBy as string;
+  const sortBy: UserSortField = USER_SORT_FIELDS.includes(sortByParam as UserSortField)
+    ? (sortByParam as UserSortField)
+    : "createdAt";
+  const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
 
   // Main list: non-deleted users (deletedAt IS NULL), both active and inactive
   // Deleted view: soft-deleted users (deletedAt IS NOT NULL)
@@ -76,7 +85,7 @@ app.get("/api/users", requireSession, requireRole("ADMIN"), async (req, res) => 
     prisma.user.findMany({
       where,
       select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
+      orderBy: { [sortBy]: sortOrder },
       skip,
       take: limit,
     }),

@@ -1,4 +1,11 @@
-import { Pencil } from "lucide-react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
+import { ChevronUp, ChevronDown, ChevronsUpDown, Pencil } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -20,6 +27,8 @@ type Props = {
   total: number;
   totalPages: number;
   limit: number;
+  sorting: SortingState;
+  onSortingChange: (updater: SortingState | ((old: SortingState) => SortingState)) => void;
   onEdit: (user: User) => void;
   onDelete: (user: User) => void;
   onDeactivate?: (user: User) => void;
@@ -27,6 +36,12 @@ type Props = {
   onRestore?: (user: User) => void;
   onPageChange: (page: number) => void;
 };
+
+function SortIcon({ sorted }: { sorted: false | "asc" | "desc" }) {
+  if (sorted === "asc") return <ChevronUp size={14} />;
+  if (sorted === "desc") return <ChevronDown size={14} />;
+  return <ChevronsUpDown size={14} className="text-gray-400" />;
+}
 
 export function UsersTable({
   users,
@@ -36,6 +51,8 @@ export function UsersTable({
   total,
   totalPages,
   limit,
+  sorting,
+  onSortingChange,
   onEdit,
   onDelete,
   onDeactivate,
@@ -47,19 +64,140 @@ export function UsersTable({
     return id === currentUserId;
   }
 
+  const columns: ColumnDef<User>[] = [
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <>
+          {row.original.name}
+          {isSelf(row.original.id) && (
+            <span className="ml-2 text-xs text-gray-400">(you)</span>
+          )}
+        </>
+      ),
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ row }) => <span className="text-gray-600">{row.original.email}</span>,
+    },
+    {
+      accessorKey: "role",
+      header: "Role",
+      cell: ({ row }) => (
+        <Badge variant={row.original.role === "ADMIN" ? "default" : "secondary"}>
+          {row.original.role}
+        </Badge>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Badge variant={row.original.isActive ? "default" : "secondary"}>
+          {row.original.isActive ? "Active" : "Inactive"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Joined",
+      cell: ({ row }) => (
+        <span className="text-gray-500">
+          {new Date(row.original.createdAt).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2 justify-end">
+          {onRestore ? (
+            <Button variant="outline" size="sm" onClick={() => onRestore(row.original)}>
+              Restore
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={() => onEdit(row.original)}>
+                <Pencil size={14} />
+                Edit
+              </Button>
+              {row.original.isActive ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isSelf(row.original.id)}
+                  title={isSelf(row.original.id) ? "Cannot deactivate your own account" : undefined}
+                  onClick={() => onDeactivate?.(row.original)}
+                >
+                  Deactivate
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onActivate?.(row.original)}
+                >
+                  Activate
+                </Button>
+              )}
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={isSelf(row.original.id)}
+                title={isSelf(row.original.id) ? "Cannot delete your own account" : undefined}
+                onClick={() => onDelete(row.original)}
+              >
+                Delete
+              </Button>
+            </>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  const table = useReactTable({
+    data: users,
+    columns,
+    state: { sorting },
+    onSortingChange,
+    manualSorting: true,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
   return (
     <>
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Joined</th>
-              <th className="px-4 py-3" />
-            </tr>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className="text-left px-4 py-3 font-medium text-gray-600 select-none"
+                    style={{ cursor: header.column.getCanSort() ? "pointer" : "default" }}
+                    onClick={header.column.getToggleSortingHandler()}
+                  >
+                    <div className="flex items-center gap-1">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.column.getCanSort() && (
+                        <SortIcon sorted={header.column.getIsSorted()} />
+                      )}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            ))}
           </thead>
           <tbody>
             {isLoading ? (
@@ -78,83 +216,20 @@ export function UsersTable({
                   </td>
                 </tr>
               ))
-            ) : users.length === 0 ? (
+            ) : table.getRowModel().rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-400">
                   No users found.
                 </td>
               </tr>
             ) : (
-              users.map((user) => (
-                <tr key={user.id} className="border-t border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-900">
-                    {user.name}
-                    {isSelf(user.id) && (
-                      <span className="ml-2 text-xs text-gray-400">(you)</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{user.email}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>
-                      {user.role}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={user.isActive ? "default" : "secondary"}>
-                      {user.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {new Date(user.createdAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 justify-end">
-                      {onRestore ? (
-                        <Button variant="outline" size="sm" onClick={() => onRestore(user)}>
-                          Restore
-                        </Button>
-                      ) : (
-                        <>
-                          <Button variant="outline" size="sm" onClick={() => onEdit(user)}>
-                            <Pencil size={14} />
-                            Edit
-                          </Button>
-                          {user.isActive ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={isSelf(user.id)}
-                              title={isSelf(user.id) ? "Cannot deactivate your own account" : undefined}
-                              onClick={() => onDeactivate?.(user)}
-                            >
-                              Deactivate
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onActivate?.(user)}
-                            >
-                              Activate
-                            </Button>
-                          )}
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            disabled={isSelf(user.id)}
-                            title={isSelf(user.id) ? "Cannot delete your own account" : undefined}
-                            onClick={() => onDelete(user)}
-                          >
-                            Delete
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </td>
+              table.getRowModel().rows.map((row) => (
+                <tr key={row.id} className="border-t border-gray-100 hover:bg-gray-50">
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="px-4 py-3">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
                 </tr>
               ))
             )}

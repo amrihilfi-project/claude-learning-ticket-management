@@ -10,11 +10,20 @@ router.use(requireSession);
 
 // ─── List tickets ─────────────────────────────────────────────────────────────
 
+const TICKET_SORT_FIELDS = ["subject", "studentEmail", "status", "category", "createdAt"] as const;
+type TicketSortField = (typeof TICKET_SORT_FIELDS)[number];
+
 router.get("/", async (req, res) => {
   const { status, category, assigneeId } = req.query;
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
   const skip = (page - 1) * limit;
+
+  const sortByParam = req.query.sortBy as string;
+  const sortBy: TicketSortField = TICKET_SORT_FIELDS.includes(sortByParam as TicketSortField)
+    ? (sortByParam as TicketSortField)
+    : "createdAt";
+  const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
 
   const where: Record<string, unknown> = {};
   if (status) where.status = status;
@@ -39,7 +48,7 @@ router.get("/", async (req, res) => {
         createdAt: true,
         updatedAt: true,
       },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      orderBy: [{ [sortBy]: sortOrder }, { id: "desc" }],
       skip,
       take: limit,
     }),

@@ -1,6 +1,14 @@
 import { useState } from "react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import axios from "axios";
 import NavBar from "../components/NavBar";
 import { Skeleton } from "../components/ui/skeleton";
@@ -42,36 +50,113 @@ const CATEGORY_LABELS: Record<string, string> = {
 async function fetchTickets(
   page: number,
   status: string,
-  category: string
+  category: string,
+  sortBy: string,
+  sortOrder: string
 ): Promise<TicketsResponse> {
-  const params: Record<string, unknown> = { page, limit: LIMIT };
+  const params: Record<string, unknown> = { page, limit: LIMIT, sortBy, sortOrder };
   if (status !== "ALL") params.status = status;
   if (category !== "ALL") params.category = category;
   const { data } = await axios.get("/api/tickets", { params });
   return data;
 }
 
+function SortIcon({ sorted }: { sorted: false | "asc" | "desc" }) {
+  if (sorted === "asc") return <ChevronUp size={14} />;
+  if (sorted === "desc") return <ChevronDown size={14} />;
+  return <ChevronsUpDown size={14} className="text-gray-400" />;
+}
+
+const columns: ColumnDef<Ticket>[] = [
+  {
+    accessorKey: "subject",
+    header: "Subject",
+    cell: ({ row }) => (
+      <span className="font-medium text-gray-900 max-w-xs truncate block">
+        {row.original.subject}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "studentEmail",
+    header: "Student",
+    cell: ({ row }) => <span className="text-gray-600">{row.original.studentEmail}</span>,
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => <TicketStatusBadge status={row.original.status} />,
+  },
+  {
+    accessorKey: "category",
+    header: "Category",
+    cell: ({ row }) => (
+      <span className="text-gray-600">
+        {row.original.category
+          ? (CATEGORY_LABELS[row.original.category] ?? row.original.category)
+          : "—"}
+      </span>
+    ),
+  },
+  {
+    id: "assignee",
+    header: "Assignee",
+    enableSorting: false,
+    cell: ({ row }) => (
+      <span className="text-gray-600">{row.original.assignee?.name ?? "—"}</span>
+    ),
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Created",
+    cell: ({ row }) => (
+      <span className="text-gray-500">
+        {new Date(row.original.createdAt).toLocaleDateString()}
+      </span>
+    ),
+  },
+];
+
 export default function TicketsPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [sorting, setSorting] = useState<SortingState>([]);
+
+  const sortBy = sorting[0]?.id ?? "createdAt";
+  const sortOrder = sorting[0]?.desc === false ? "asc" : "desc";
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["tickets", page, statusFilter, categoryFilter],
-    queryFn: () => fetchTickets(page, statusFilter, categoryFilter),
+    queryKey: ["tickets", page, statusFilter, categoryFilter, sortBy, sortOrder],
+    queryFn: () => fetchTickets(page, statusFilter, categoryFilter, sortBy, sortOrder),
     placeholderData: (prev) => prev,
+  });
+
+  const table = useReactTable({
+    data: data?.data ?? [],
+    columns,
+    state: { sorting },
+    onSortingChange: (updater) => {
+      setSorting((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        setPage(1);
+        return next;
+      });
+    },
+    manualSorting: true,
+    getCoreRowModel: getCoreRowModel(),
   });
 
   const totalPages = data ? Math.ceil(data.total / LIMIT) : 1;
 
-  function handleStatusFilter(value: string) {
-    setStatusFilter(value);
+  function handleStatusFilter(value: string | null) {
+    if (value) setStatusFilter(value);
     setPage(1);
   }
 
-  function handleCategoryFilter(value: string) {
-    setCategoryFilter(value);
+  function handleCategoryFilter(value: string | null) {
+    if (value) setCategoryFilter(value);
     setPage(1);
   }
 
@@ -111,26 +196,25 @@ export default function TicketsPage() {
         <div className="bg-white rounded-xl ring-1 ring-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Subject
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Student
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Category
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Assignee
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Created
-                </th>
-              </tr>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id} className="border-b border-gray-200 bg-gray-50">
+                  {headerGroup.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide select-none"
+                      style={{ cursor: header.column.getCanSort() ? "pointer" : "default" }}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      <div className="flex items-center gap-1">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getCanSort() && (
+                          <SortIcon sorted={header.column.getIsSorted()} />
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              ))}
             </thead>
             <tbody>
               {isLoading && !data ? (
@@ -145,37 +229,28 @@ export default function TicketsPage() {
                 ))
               ) : isError ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-red-600">
+                  <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-red-600">
                     Failed to load tickets.
                   </td>
                 </tr>
-              ) : data?.data.length === 0 ? (
+              ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-gray-500">
                     No tickets found.
                   </td>
                 </tr>
               ) : (
-                data?.data.map((ticket) => (
+                table.getRowModel().rows.map((row) => (
                   <tr
-                    key={ticket.id}
+                    key={row.id}
                     className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                    onClick={() => navigate(`/tickets/${ticket.id}`)}
+                    onClick={() => navigate(`/tickets/${row.original.id}`)}
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900 max-w-xs truncate">
-                      {ticket.subject}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{ticket.studentEmail}</td>
-                    <td className="px-4 py-3">
-                      <TicketStatusBadge status={ticket.status} />
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {ticket.category ? (CATEGORY_LABELS[ticket.category] ?? ticket.category) : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{ticket.assignee?.name ?? "—"}</td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {new Date(ticket.createdAt).toLocaleDateString()}
-                    </td>
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-4 py-3">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
                   </tr>
                 ))
               )}

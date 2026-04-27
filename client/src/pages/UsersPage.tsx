@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import type { SortingState } from "@tanstack/react-table";
 import { createUserSchema } from "core";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,9 +26,22 @@ type UsersResponse = {
 
 const LIMIT = 10;
 
-async function fetchUsers(page: number, search: string, deleted: boolean): Promise<UsersResponse> {
+async function fetchUsers(
+  page: number,
+  search: string,
+  deleted: boolean,
+  sortBy: string,
+  sortOrder: string
+): Promise<UsersResponse> {
   const { data } = await axios.get("/api/users", {
-    params: { page, limit: LIMIT, ...(search ? { search } : {}), ...(deleted ? { deleted: "true" } : {}) },
+    params: {
+      page,
+      limit: LIMIT,
+      sortBy,
+      sortOrder,
+      ...(search ? { search } : {}),
+      ...(deleted ? { deleted: "true" } : {}),
+    },
   });
   return data;
 }
@@ -42,6 +56,7 @@ export default function UsersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
@@ -73,9 +88,12 @@ export default function UsersPage() {
     setFormError(null);
   }
 
+  const sortBy = sorting[0]?.id ?? "createdAt";
+  const sortOrder = sorting[0]?.desc === false ? "asc" : "desc";
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["users", page, debouncedSearch, showDeleted],
-    queryFn: () => fetchUsers(page, debouncedSearch, showDeleted),
+    queryKey: ["users", page, debouncedSearch, showDeleted, sortBy, sortOrder],
+    queryFn: () => fetchUsers(page, debouncedSearch, showDeleted, sortBy, sortOrder),
     placeholderData: (prev) => prev,
   });
 
@@ -217,6 +235,14 @@ export default function UsersPage() {
           total={total}
           totalPages={totalPages}
           limit={LIMIT}
+          sorting={sorting}
+          onSortingChange={(updater) => {
+            setSorting((prev) => {
+              const next = typeof updater === "function" ? updater(prev) : updater;
+              setPage(1);
+              return next;
+            });
+          }}
           onEdit={openEdit}
           onDeactivate={!showDeleted ? (user) => { setFormError(null); deactivateMutation.mutate(user.id); } : undefined}
           onActivate={!showDeleted ? (user) => { setFormError(null); activateMutation.mutate(user.id); } : undefined}
