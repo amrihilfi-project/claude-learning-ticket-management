@@ -114,7 +114,7 @@ export default function TicketDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-6 py-8 space-y-4">
+        <main className="max-w-5xl mx-auto px-6 py-8 space-y-4">
           <Skeleton className="h-6 w-32" />
           <Skeleton className="h-8 w-96" />
           <Skeleton className="h-4 w-48" />
@@ -128,7 +128,7 @@ export default function TicketDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-6 py-8">
+        <main className="max-w-5xl mx-auto px-6 py-8">
           <p className="text-red-600 text-sm">Ticket not found.</p>
           <Button variant="outline" className="mt-4" onClick={() => navigate("/tickets")}>
             Back to tickets
@@ -141,7 +141,7 @@ export default function TicketDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-6 py-8">
         <button
           onClick={() => navigate("/tickets")}
           className="text-sm text-gray-500 hover:text-gray-900 mb-4 flex items-center gap-1 transition-colors"
@@ -152,142 +152,150 @@ export default function TicketDetailPage() {
         <h1 className="text-xl font-semibold text-gray-900 mb-1">{ticket.subject}</h1>
         <p className="text-sm text-gray-500 mb-6">{ticket.studentEmail}</p>
 
-        <div className="flex flex-wrap items-end gap-4 mb-6 p-4 bg-white rounded-xl ring-1 ring-gray-200">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</span>
-            <Select
-              value={ticket.status}
-              onValueChange={(value) => updateTicket.mutate({ status: value })}
-            >
-              <SelectTrigger className="w-36" aria-label="Change status">
-                <SelectValue>
-                  <span className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${statusStyles[ticket.status]?.dot ?? "bg-gray-400"}`} />
-                    <span className={`font-medium ${statusStyles[ticket.status]?.color ?? "text-gray-700"}`}>
-                      {statusStyles[ticket.status]?.label ?? ticket.status}
+        <div className="flex gap-6 items-start">
+          {/* Left column — conversation */}
+          <div className="flex-1 min-w-0 space-y-4">
+            <div className="space-y-3">
+              {ticket.messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`p-4 rounded-lg ${
+                    msg.fromStudent
+                      ? "bg-blue-50 border-l-4 border-blue-400"
+                      : "bg-gray-50 border-l-4 border-gray-300 ml-8"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-gray-600">
+                      {msg.fromStudent ? ticket.studentEmail : "Agent"}
                     </span>
-                  </span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="OPEN">Open</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="RESOLVED">Resolved</SelectItem>
-                <SelectItem value="CLOSED">Closed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Category</span>
-            <Select
-              value={ticket.category ?? "__none__"}
-              onValueChange={(value) =>
-                updateTicket.mutate({ category: value === "__none__" ? null : value })
-              }
-            >
-              <SelectTrigger className="w-48" aria-label="Change category">
-                <SelectValue>
-                  <span className="font-medium text-gray-800">
-                    {categoryLabels[ticket.category ?? "__none__"] ?? "No Category"}
-                  </span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No Category</SelectItem>
-                <SelectItem value="GENERAL_QUESTION">General Question</SelectItem>
-                <SelectItem value="TECHNICAL_ISSUE">Technical Issue</SelectItem>
-                <SelectItem value="REFUND_REQUEST">Refund Request</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Assignee</span>
-            <Select
-              value={ticket.assignee?.id ?? "__none__"}
-              onValueChange={(value) =>
-                updateTicket.mutate({ assigneeId: value === "__none__" ? null : value })
-              }
-            >
-              <SelectTrigger className="w-44" aria-label="Change assignee">
-                <SelectValue>
-                  {ticket.assignee ? (
-                    <span className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold flex items-center justify-center shrink-0">
-                        {initials(ticket.assignee.name)}
-                      </span>
-                      <span className="font-medium text-gray-800">{ticket.assignee.name}</span>
+                    <span className="text-xs text-gray-400">
+                      {new Date(msg.createdAt).toLocaleString()}
                     </span>
-                  ) : (
-                    <span className="italic text-gray-400">Unassigned</span>
-                  )}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Unassigned</SelectItem>
-                {users?.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="space-y-3 mb-6">
-          {ticket.messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`p-4 rounded-lg ${
-                msg.fromStudent
-                  ? "bg-blue-50 border-l-4 border-blue-400"
-                  : "bg-gray-50 border-l-4 border-gray-300 ml-8"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-gray-600">
-                  {msg.fromStudent ? ticket.studentEmail : "Agent"}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {new Date(msg.createdAt).toLocaleString()}
-                </span>
-              </div>
-              <p className="text-sm text-gray-800 whitespace-pre-wrap">{msg.body}</p>
+                  </div>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{msg.body}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <AiAssistantPanel ticket={ticket} />
+            <AiAssistantPanel ticket={ticket} />
 
-        <div className="bg-white rounded-xl ring-1 ring-gray-200 p-4">
-          <h2 className="text-sm font-medium text-gray-700 mb-3">Reply</h2>
-          <textarea
-            aria-label="Reply"
-            value={replyBody}
-            onChange={(e) => setReplyBody(e.target.value)}
-            placeholder="Type your reply..."
-            rows={4}
-            className="w-full text-sm border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <div className="flex items-center justify-between mt-3">
-            <Button
-              variant="outline"
-              onClick={() => enhanceReply.mutate(replyBody)}
-              disabled={enhanceReply.isPending}
-              className="text-indigo-700 border-indigo-200 hover:bg-indigo-50"
-            >
-              {enhanceReply.isPending ? "Enhancing..." : "✨ Enhance Reply"}
-            </Button>
-            <Button
-              onClick={() => {
-                if (replyBody.trim()) addReply.mutate(replyBody.trim());
-              }}
-              disabled={!replyBody.trim() || addReply.isPending}
-            >
-              {addReply.isPending ? "Sending..." : "Send Reply"}
-            </Button>
+            <div className="bg-white rounded-xl ring-1 ring-gray-200 p-4">
+              <h2 className="text-sm font-medium text-gray-700 mb-3">Reply</h2>
+              <textarea
+                aria-label="Reply"
+                value={replyBody}
+                onChange={(e) => setReplyBody(e.target.value)}
+                placeholder="Type your reply..."
+                rows={4}
+                className="w-full text-sm border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <div className="flex items-center justify-between mt-3">
+                <Button
+                  variant="outline"
+                  onClick={() => enhanceReply.mutate(replyBody)}
+                  disabled={enhanceReply.isPending}
+                  className="text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                >
+                  {enhanceReply.isPending ? "Enhancing..." : "✨ Enhance Reply"}
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (replyBody.trim()) addReply.mutate(replyBody.trim());
+                  }}
+                  disabled={!replyBody.trim() || addReply.isPending}
+                >
+                  {addReply.isPending ? "Sending..." : "Send Reply"}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right column — ticket properties */}
+          <div className="w-52 shrink-0">
+            <div className="bg-white rounded-xl ring-1 ring-gray-200 p-4 space-y-4">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-gray-500">Status</span>
+                <Select
+                  value={ticket.status}
+                  onValueChange={(value) => updateTicket.mutate({ status: value })}
+                >
+                  <SelectTrigger className="w-full" aria-label="Change status">
+                    <SelectValue>
+                      <span className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${statusStyles[ticket.status]?.dot ?? "bg-gray-400"}`} />
+                        <span className={`font-medium ${statusStyles[ticket.status]?.color ?? "text-gray-700"}`}>
+                          {statusStyles[ticket.status]?.label ?? ticket.status}
+                        </span>
+                      </span>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OPEN">Open</SelectItem>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="RESOLVED">Resolved</SelectItem>
+                    <SelectItem value="CLOSED">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-gray-500">Category</span>
+                <Select
+                  value={ticket.category ?? "__none__"}
+                  onValueChange={(value) =>
+                    updateTicket.mutate({ category: value === "__none__" ? null : value })
+                  }
+                >
+                  <SelectTrigger className="w-full" aria-label="Change category">
+                    <SelectValue>
+                      <span className="font-medium text-gray-800">
+                        {categoryLabels[ticket.category ?? "__none__"] ?? "No Category"}
+                      </span>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No Category</SelectItem>
+                    <SelectItem value="GENERAL_QUESTION">General Question</SelectItem>
+                    <SelectItem value="TECHNICAL_ISSUE">Technical Issue</SelectItem>
+                    <SelectItem value="REFUND_REQUEST">Refund Request</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-gray-500">Assignee</span>
+                <Select
+                  value={ticket.assignee?.id ?? "__none__"}
+                  onValueChange={(value) =>
+                    updateTicket.mutate({ assigneeId: value === "__none__" ? null : value })
+                  }
+                >
+                  <SelectTrigger className="w-full" aria-label="Change assignee">
+                    <SelectValue>
+                      {ticket.assignee ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold flex items-center justify-center shrink-0">
+                            {initials(ticket.assignee.name)}
+                          </span>
+                          <span className="font-medium text-gray-800">{ticket.assignee.name}</span>
+                        </span>
+                      ) : (
+                        <span className="italic text-gray-400">Unassigned</span>
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Unassigned</SelectItem>
+                    {users?.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
         </div>
       </main>
