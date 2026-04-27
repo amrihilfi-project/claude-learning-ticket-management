@@ -167,30 +167,36 @@ export default function TicketsPage() {
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Tickets</h1>
 
         <div className="flex gap-3 mb-4">
-          <Select value={statusFilter} onValueChange={handleStatusFilter}>
-            <SelectTrigger className="w-40" aria-label="Filter by status">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Statuses</SelectItem>
-              <SelectItem value="OPEN">Open</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
-              <SelectItem value="RESOLVED">Resolved</SelectItem>
-              <SelectItem value="CLOSED">Closed</SelectItem>
-            </SelectContent>
-          </Select>
+          <label className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</span>
+            <Select value={statusFilter} onValueChange={handleStatusFilter}>
+              <SelectTrigger className="w-40" aria-label="Filter by status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="OPEN">Open</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="RESOLVED">Resolved</SelectItem>
+                <SelectItem value="CLOSED">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
 
-          <Select value={categoryFilter} onValueChange={handleCategoryFilter}>
-            <SelectTrigger className="w-48" aria-label="Filter by category">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Categories</SelectItem>
-              <SelectItem value="GENERAL_QUESTION">General Question</SelectItem>
-              <SelectItem value="TECHNICAL_ISSUE">Technical Issue</SelectItem>
-              <SelectItem value="REFUND_REQUEST">Refund Request</SelectItem>
-            </SelectContent>
-          </Select>
+          <label className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide whitespace-nowrap">Category</span>
+            <Select value={categoryFilter} onValueChange={handleCategoryFilter}>
+              <SelectTrigger className="w-48" aria-label="Filter by category">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Categories</SelectItem>
+                <SelectItem value="GENERAL_QUESTION">General Question</SelectItem>
+                <SelectItem value="TECHNICAL_ISSUE">Technical Issue</SelectItem>
+                <SelectItem value="REFUND_REQUEST">Refund Request</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
         </div>
 
         <div className="bg-white rounded-xl ring-1 ring-gray-200 overflow-hidden">
