@@ -1,9 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 
-const apiKey = process.env.ANTHROPIC_API_KEY;
-const client = new Anthropic({ apiKey: apiKey || "test-key" });
+const apiKey = process.env.GEMINI_API_KEY;
+const ai = new GoogleGenAI({ apiKey: apiKey || "test-key" });
 
-const MODEL = "claude-haiku-4-5";
+const MODEL = "gemini-2.5-flash";
 
 type Message = {
   body: string;
@@ -16,20 +16,22 @@ export async function classifyTicket(subject: string, body: string): Promise<Tic
   if (!apiKey || apiKey.includes("test-key")) return "GENERAL_QUESTION";
 
   try {
-    const response = await client.messages.create({
+    const response = await ai.models.generateContent({
       model: MODEL,
-      max_tokens: 20,
-      system: `You are an expert customer support classifier.
+      contents: `Subject: ${subject}\n\nBody: ${body}`,
+      config: {
+        systemInstruction: `You are an expert customer support classifier.
 Classify the given support ticket into exactly one of the following categories:
 - GENERAL_QUESTION: For questions about the product, pricing, how-tos, or general inquiries.
 - TECHNICAL_ISSUE: For bugs, errors, login problems, or unexpected system behavior.
 - REFUND_REQUEST: For users explicitly asking for their money back, canceling for a refund, etc.
 
 You must reply with ONLY the category name. No other text.`,
-      messages: [{ role: "user", content: `Subject: ${subject}\n\nBody: ${body}` }],
+        maxOutputTokens: 20,
+      },
     });
 
-    const result = (response.content[0] as { type: string; text: string }).text.trim();
+    const result = response.text?.trim() ?? "";
     if (result === "GENERAL_QUESTION" || result === "TECHNICAL_ISSUE" || result === "REFUND_REQUEST") {
       return result;
     }
@@ -53,18 +55,20 @@ export async function summarizeTicket(subject: string, body: string, messages: M
       });
     }
 
-    const response = await client.messages.create({
+    const response = await ai.models.generateContent({
       model: MODEL,
-      max_tokens: 256,
-      system: `You are a helpful customer support assistant.
+      contents: thread,
+      config: {
+        systemInstruction: `You are a helpful customer support assistant.
 Read the support ticket and any conversation history.
 Write a concise, 2-3 sentence summary of the current state of the issue.
 Focus on what the user needs and what has been done so far.
 Do not use conversational filler, just provide the summary.`,
-      messages: [{ role: "user", content: thread }],
+        maxOutputTokens: 256,
+      },
     });
 
-    return (response.content[0] as { type: string; text: string }).text.trim() || null;
+    return response.text?.trim() || null;
   } catch (error) {
     console.error("AI Summarization Error:", error);
     return null;
@@ -97,7 +101,7 @@ export async function suggestReply(
       thread += `\nAgent's draft reply:\n${draft}`;
     }
 
-    const system = draft
+    const systemInstruction = draft
       ? `You are a professional customer support agent.
 The agent has started drafting a reply. Improve and polish it while addressing the student's issue.
 Keep the agent's intent but make it clearer, more professional, and more helpful.
@@ -113,14 +117,16 @@ Use the conversation history and category to contextually inform your reply.
 - If it's a GENERAL_QUESTION, answer to the best of your ability in a helpful manner.
 Do not include subject lines or placeholder brackets like [Your Name]. Just write the body of the message.`;
 
-    const response = await client.messages.create({
+    const response = await ai.models.generateContent({
       model: MODEL,
-      max_tokens: 512,
-      system,
-      messages: [{ role: "user", content: thread }],
+      contents: thread,
+      config: {
+        systemInstruction,
+        maxOutputTokens: 512,
+      },
     });
 
-    return (response.content[0] as { type: string; text: string }).text.trim() || null;
+    return response.text?.trim() || null;
   } catch (error) {
     console.error("AI Reply Suggestion Error:", error);
     return null;

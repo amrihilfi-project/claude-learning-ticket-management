@@ -9,7 +9,7 @@ An AI-powered support ticket management system for handling student support emai
 - **Backend**: Node.js, Express, TypeScript, Prisma (`server/`)
 - **Database**: PostgreSQL
 ### AI Integration & External Services
-- **AI Provider**: Gemini API (Gemini 2.5 Flash) via `@google/genai` SDK.
+- **AI Provider**: Gemini API (`gemini-2.5-flash`) via `@google/genai` SDK.
 - **Workflow**: Synchronous processing during webhook ingestion (no queueing for now).
 - **Error Handling**: AI failures are caught and logged. They never prevent a ticket from being created or updated. AI features are always best-effort.
 - **Testing AI**: For automated tests, the `GEMINI_API_KEY` is set to `test-key` in `.env.test`. The `server/src/lib/ai.ts` module checks for this dummy key and returns deterministic mocked strings instead of hitting the actual API. This ensures E2E tests are fast, reliable, and don't incur API costs.

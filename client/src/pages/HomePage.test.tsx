@@ -115,4 +115,29 @@ describe("HomePage (Dashboard)", () => {
     const dashes = screen.getAllByText("—");
     expect(dashes.length).toBeGreaterThanOrEqual(7);
   });
+
+  it("status cards link to /tickets?status=X", () => {
+    mockCountResponses();
+    renderWithProviders(<HomePage />);
+    expect(screen.getByRole("link", { name: /open/i })).toHaveAttribute("href", "/tickets?status=OPEN");
+    expect(screen.getByRole("link", { name: /pending/i })).toHaveAttribute("href", "/tickets?status=PENDING");
+    expect(screen.getByRole("link", { name: /resolved/i })).toHaveAttribute("href", "/tickets?status=RESOLVED");
+    expect(screen.getByRole("link", { name: /closed/i })).toHaveAttribute("href", "/tickets?status=CLOSED");
+  });
+
+  it("category cards link to /tickets?category=X", () => {
+    mockCountResponses();
+    renderWithProviders(<HomePage />);
+    expect(screen.getByRole("link", { name: /general question/i })).toHaveAttribute("href", "/tickets?category=GENERAL_QUESTION");
+    expect(screen.getByRole("link", { name: /technical issue/i })).toHaveAttribute("href", "/tickets?category=TECHNICAL_ISSUE");
+    expect(screen.getByRole("link", { name: /refund request/i })).toHaveAttribute("href", "/tickets?category=REFUND_REQUEST");
+  });
+
+  it("uncategorized card is not a link", () => {
+    mockCountResponses();
+    renderWithProviders(<HomePage />);
+    const allLinks = screen.getAllByRole("link");
+    const hrefs = allLinks.map((l) => l.getAttribute("href") ?? "");
+    expect(hrefs.every((h) => !h.includes("UNCATEGORIZED"))).toBe(true);
+  });
 });

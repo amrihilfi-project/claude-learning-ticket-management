@@ -7,7 +7,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import axios from "axios";
 import NavBar from "../components/NavBar";
@@ -121,8 +121,15 @@ const columns: ColumnDef<Ticket>[] = [
 export default function TicketsPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [searchParams] = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const s = searchParams.get("status");
+    return s && ["OPEN", "PENDING", "RESOLVED", "CLOSED"].includes(s) ? s : "ALL";
+  });
+  const [categoryFilter, setCategoryFilter] = useState(() => {
+    const c = searchParams.get("category");
+    return c && ["GENERAL_QUESTION", "TECHNICAL_ISSUE", "REFUND_REQUEST"].includes(c) ? c : "ALL";
+  });
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const sortBy = sorting[0]?.id ?? "createdAt";

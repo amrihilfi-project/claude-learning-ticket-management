@@ -1,5 +1,7 @@
-import { screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { MemoryRouter } from "react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import axios from "axios";
 import TicketsPage from "./TicketsPage";
 import { renderWithProviders } from "../test/renderWithProviders";
@@ -55,6 +57,17 @@ const ticketsResponse = (tickets: ReturnType<typeof makeTicket>[], total?: numbe
 
 function renderPage() {
   return renderWithProviders(<TicketsPage />);
+}
+
+function renderPageWithParams(search: string) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[`/tickets${search}`]}>
+        <TicketsPage />
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
@@ -176,6 +189,36 @@ describe("TicketsPage", () => {
       const next = await screen.findByRole("button", { name: /next/i });
       fireEvent.click(next);
       expect(await screen.findByText(/page 2/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("URL search param filter initialization", () => {
+    beforeEach(() => {
+      ax.get.mockResolvedValue({ data: ticketsResponse([makeTicket()]) });
+    });
+
+    it("pre-selects status filter from ?status=OPEN", async () => {
+      renderPageWithParams("?status=OPEN");
+      const trigger = await screen.findByRole("combobox", { name: /filter by status/i });
+      expect(trigger).toHaveTextContent("OPEN");
+    });
+
+    it("pre-selects category filter from ?category=TECHNICAL_ISSUE", async () => {
+      renderPageWithParams("?category=TECHNICAL_ISSUE");
+      const trigger = await screen.findByRole("combobox", { name: /filter by category/i });
+      expect(trigger).toHaveTextContent("TECHNICAL_ISSUE");
+    });
+
+    it("defaults to ALL when no search params are present", async () => {
+      renderPage();
+      const statusTrigger = await screen.findByRole("combobox", { name: /filter by status/i });
+      expect(statusTrigger).toHaveTextContent("ALL");
+    });
+
+    it("ignores invalid status param and defaults to ALL", async () => {
+      renderPageWithParams("?status=BOGUS");
+      const trigger = await screen.findByRole("combobox", { name: /filter by status/i });
+      expect(trigger).toHaveTextContent("ALL");
     });
   });
 });

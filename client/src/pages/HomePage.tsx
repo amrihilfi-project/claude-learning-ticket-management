@@ -28,10 +28,10 @@ export default function HomePage() {
   const refundQ = useQuery({ queryKey: ["tickets-count-cat", "REFUND_REQUEST", userId ?? null], queryFn: () => fetchCount({ category: "REFUND_REQUEST", ...agentFilter }), enabled: sessionReady });
 
   const statusCards = [
-    { label: "Open", count: openQ.data, color: "text-blue-600" },
-    { label: "Pending", count: pendingQ.data, color: "text-yellow-600" },
-    { label: "Resolved", count: resolvedQ.data, color: "text-green-600" },
-    { label: "Closed", count: closedQ.data, color: "text-gray-500" },
+    { label: "Open",     count: openQ.data,     color: "text-blue-600",   status: "OPEN"     },
+    { label: "Pending",  count: pendingQ.data,  color: "text-yellow-600", status: "PENDING"  },
+    { label: "Resolved", count: resolvedQ.data, color: "text-green-600",  status: "RESOLVED" },
+    { label: "Closed",   count: closedQ.data,   color: "text-gray-500",   status: "CLOSED"   },
   ];
 
   const totalByStatus =
@@ -42,10 +42,10 @@ export default function HomePage() {
     : undefined;
 
   const categoryCards = [
-    { label: "General Question", count: generalQ.data },
-    { label: "Technical Issue", count: technicalQ.data },
-    { label: "Refund Request", count: refundQ.data },
-    { label: "Uncategorized", count: uncategorizedCount },
+    { label: "General Question", count: generalQ.data,      category: "GENERAL_QUESTION" as string | null },
+    { label: "Technical Issue",  count: technicalQ.data,    category: "TECHNICAL_ISSUE"  as string | null },
+    { label: "Refund Request",   count: refundQ.data,       category: "REFUND_REQUEST"   as string | null },
+    { label: "Uncategorized",    count: uncategorizedCount, category: null               },
   ];
 
   return (
@@ -69,15 +69,17 @@ export default function HomePage() {
             By Status
           </h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {statusCards.map(({ label, count, color }) => (
-              <Card key={label}>
-                <CardHeader>
-                  <CardTitle className="text-xs font-medium text-gray-500">{label}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className={`text-3xl font-bold ${color}`}>{count ?? "—"}</p>
-                </CardContent>
-              </Card>
+            {statusCards.map(({ label, count, color, status }) => (
+              <Link key={label} to={`/tickets?status=${status}`}>
+                <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                  <CardHeader>
+                    <CardTitle className="text-xs font-medium text-gray-500">{label}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className={`text-3xl font-bold ${color}`}>{count ?? "—"}</p>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         </section>
@@ -87,16 +89,23 @@ export default function HomePage() {
             By Category
           </h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {categoryCards.map(({ label, count }) => (
-              <Card key={label}>
-                <CardHeader>
-                  <CardTitle className="text-xs font-medium text-gray-500">{label}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold text-gray-900">{count ?? "—"}</p>
-                </CardContent>
-              </Card>
-            ))}
+            {categoryCards.map(({ label, count, category }) => {
+              const card = (
+                <Card className={category ? "hover:shadow-md transition-shadow cursor-pointer" : ""}>
+                  <CardHeader>
+                    <CardTitle className="text-xs font-medium text-gray-500">{label}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-bold text-gray-900">{count ?? "—"}</p>
+                  </CardContent>
+                </Card>
+              );
+              return category ? (
+                <Link key={label} to={`/tickets?category=${category}`}>{card}</Link>
+              ) : (
+                <div key={label}>{card}</div>
+              );
+            })}
           </div>
         </section>
       </main>
