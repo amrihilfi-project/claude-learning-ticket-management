@@ -1,7 +1,14 @@
-import { GoogleGenAI } from "@google/genai";
+import { createGoogleGenerativeAI, type GoogleLanguageModelOptions } from "@ai-sdk/google";
+import { generateText } from "ai";
+
+// Disable thinking for all calls — thinking tokens count against maxOutputTokens
+// and would truncate responses. These tasks don't require multi-step reasoning.
+const NO_THINKING: GoogleLanguageModelOptions = {
+  thinkingConfig: { thinkingBudget: 0 },
+};
 
 const apiKey = process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey: apiKey || "test-key" });
+const google = createGoogleGenerativeAI({ apiKey: apiKey || "test-key" });
 
 const MODEL = "gemini-2.5-flash";
 
@@ -16,22 +23,21 @@ export async function classifyTicket(subject: string, body: string): Promise<Tic
   if (!apiKey || apiKey.includes("test-key")) return "GENERAL_QUESTION";
 
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: `Subject: ${subject}\n\nBody: ${body}`,
-      config: {
-        systemInstruction: `You are an expert customer support classifier.
+    const { text } = await generateText({
+      model: google(MODEL),
+      system: `You are an expert customer support classifier.
 Classify the given support ticket into exactly one of the following categories:
 - GENERAL_QUESTION: For questions about the product, pricing, how-tos, or general inquiries.
 - TECHNICAL_ISSUE: For bugs, errors, login problems, or unexpected system behavior.
 - REFUND_REQUEST: For users explicitly asking for their money back, canceling for a refund, etc.
 
 You must reply with ONLY the category name. No other text.`,
-        maxOutputTokens: 20,
-      },
+      prompt: `Subject: ${subject}\n\nBody: ${body}`,
+      maxOutputTokens: 20,
+      providerOptions: { google: NO_THINKING },
     });
 
-    const result = response.text?.trim() ?? "";
+    const result = text.trim();
     if (result === "GENERAL_QUESTION" || result === "TECHNICAL_ISSUE" || result === "REFUND_REQUEST") {
       return result;
     }
@@ -55,20 +61,19 @@ export async function summarizeTicket(subject: string, body: string, messages: M
       });
     }
 
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: thread,
-      config: {
-        systemInstruction: `You are a helpful customer support assistant.
+    const { text } = await generateText({
+      model: google(MODEL),
+      system: `You are a helpful customer support assistant.
 Read the support ticket and any conversation history.
 Write a concise, 2-3 sentence summary of the current state of the issue.
 Focus on what the user needs and what has been done so far.
 Do not use conversational filler, just provide the summary.`,
-        maxOutputTokens: 256,
-      },
+      prompt: thread,
+      maxOutputTokens: 512,
+      providerOptions: { google: NO_THINKING },
     });
 
-    return response.text?.trim() || null;
+    return text.trim() || null;
   } catch (error) {
     console.error("AI Summarization Error:", error);
     return null;
@@ -101,7 +106,7 @@ export async function suggestReply(
       thread += `\nAgent's draft reply:\n${draft}`;
     }
 
-    const systemInstruction = draft
+    const system = draft
       ? `You are a professional customer support agent.
 The agent has started drafting a reply. Improve and polish it while addressing the student's issue.
 Keep the agent's intent but make it clearer, more professional, and more helpful.
@@ -117,16 +122,15 @@ Use the conversation history and category to contextually inform your reply.
 - If it's a GENERAL_QUESTION, answer to the best of your ability in a helpful manner.
 Do not include subject lines or placeholder brackets like [Your Name]. Just write the body of the message.`;
 
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: thread,
-      config: {
-        systemInstruction,
-        maxOutputTokens: 512,
-      },
+    const { text } = await generateText({
+      model: google(MODEL),
+      system,
+      prompt: thread,
+      maxOutputTokens: 1024,
+      providerOptions: { google: NO_THINKING },
     });
 
-    return response.text?.trim() || null;
+    return text.trim() || null;
   } catch (error) {
     console.error("AI Reply Suggestion Error:", error);
     return null;

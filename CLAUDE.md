@@ -79,6 +79,26 @@ Always use the **`playwright-e2e-writer`** agent when writing or expanding E2E t
 
 The agent owns all Playwright configuration, test setup details, and best-practice patterns for this project.
 
+### E2E test scope rule — keep only what unit tests cannot cover
+
+**Only write E2E tests for functionality that cannot be tested with Vitest + React Testing Library unit tests.** Before adding an E2E test, ask: "Could a unit test with mocked axios cover this?" If yes, write or extend the unit test instead.
+
+**Write E2E tests for:**
+- Real auth flows — sign in, sign out, session cookies, protected-route redirects
+- Real HTTP API behavior — server validation, business logic, status codes
+- Real server mutations where the result must be visible after a page reload (persistence)
+- Real cross-layer workflows — multi-step flows that change server state (e.g. delete → deleted view → restore → active view)
+- Real server-side uniqueness checks and live validation that hits the database
+- Real server-side search/filter results (unit tests can only verify the API param is sent, not the filtered data)
+
+**Do NOT write E2E tests for:**
+- Component rendering (headings, labels, column headers, button visibility) — unit tests
+- Client-side Zod/RHF validation (inline errors, submit blocked) — unit tests
+- Dialog UX (Escape key, Cancel button, click-outside) — unit tests
+- Loading/error/empty states — unit tests
+- API call parameters and mutation wiring — unit tests
+- Any behavior that can be fully exercised with mocked axios responses
+
 ## Documentation
 Always use Context7 MCP to fetch current documentation for any library or framework used in this project — including Bun, Express, React, React Router, Vite, Prisma, TailwindCSS, and the Gemini API.
 
